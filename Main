@@ -1,4 +1,4 @@
--- Project Astra v4 | t.me/epsteinhub
+-- Project Astra v5 | t.me/epsteinhub
 
 local UIS = game:GetService("UserInputService")
 local RS = game:GetService("RunService")
@@ -11,7 +11,6 @@ local SoundService = game:GetService("SoundService")
 local LP = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- Безопасное получение контейнера для GUI
 local GUI_PARENT = (function()
     if gethui then
         local ok, h = pcall(gethui)
@@ -30,7 +29,6 @@ local GUI_PARENT = (function()
     return LP:WaitForChild("PlayerGui")
 end)()
 
--- Уборка старых
 for _, n in ipairs({"NyxonProject","ProjectAstra","AstraFOV","AstraFreezeUI","AstraTPButton","AstraAirWalkButton","EpsteinHub","EpsteinMobile","EpsteinStats"}) do
     pcall(function()
         local p1 = GUI_PARENT:FindFirstChild(n)
@@ -50,8 +48,8 @@ local BARBG    = Color3.fromRGB(28,28,34)
 local CHECKBG  = Color3.fromRGB(26,26,31)
 local WHITE    = Color3.fromRGB(235,235,235)
 local GRAY     = Color3.fromRGB(145,145,150)
-local BORDER_COLOR = Color3.fromRGB(255,25,25)
-local ACCENT_COLOR = Color3.fromRGB(255,25,25)
+local BORDER_COLOR = Color3.fromRGB(255,25,120)
+local ACCENT_COLOR = Color3.fromRGB(255,25,120)
 
 -- STATE
 local silentAimEnabled   = false
@@ -61,7 +59,7 @@ local silentAimTeamCheck = false
 local silentAimVisCheck  = false
 local silentAimShowFov   = true
 local silentAimSnapline  = false
-local silentAimFovColor  = Color3.fromRGB(150,50,220)
+local silentAimFovColor  = Color3.fromRGB(255,80,180)
 local silentAimSnaplineColor = Color3.fromRGB(255,0,255)
 
 local bulletTracerEnabled = false
@@ -74,8 +72,10 @@ local hitSoundVolume  = 1
 local hitSoundObj     = nil
 
 local hitMarkerEnabled = true
-local hitMarkerColor   = Color3.fromRGB(255,255,255)
-local hitMarkerSize    = 8
+local hitMarkerColor   = Color3.fromRGB(255,0,0)
+local hitMarkerSize    = 9
+local hitMarkerGap     = 4
+local ActiveHitmarkers = {}
 
 local damageEvents = {}
 local DAMAGE_WINDOW = 0.35
@@ -116,8 +116,9 @@ local SKYBOXES = {
     ["Pink Galaxy"] = "rbxassetid://159454299",
     ["Night City"]  = "rbxassetid://6444884337",
     ["Aurora"]      = "rbxassetid://2459487571",
-    ["Sunset"]      = "rbxassetid://6372222827",
     ["Space"]       = "rbxassetid://85646454",
+    ["Anime"]       = "rbxassetid://5432490141",
+    ["Neon"]        = "rbxassetid://7849283454",
 }
 
 local speedHackEnabled = false
@@ -180,9 +181,7 @@ local function SetBorderColor(color)
         local it = BorderRegistry[i]
         if it.object and it.object.Parent then
             pcall(function() it.object[it.property] = color end)
-        else
-            table.remove(BorderRegistry,i)
-        end
+        else table.remove(BorderRegistry,i) end
     end
 end
 
@@ -192,9 +191,7 @@ local function SetAccentColor(color)
         local it = AccentRegistry[i]
         if it.object and it.object.Parent then
             pcall(function() it.object[it.property] = color end)
-        else
-            table.remove(AccentRegistry,i)
-        end
+        else table.remove(AccentRegistry,i) end
     end
 end
 
@@ -319,7 +316,7 @@ HueCursor.ZIndex = 520
 HueCursor.Parent = Hue
 Stroke(HueCursor,1)
 
-local RGBLabel = Text(Picker,"RGB: 255, 25, 25",UDim2.fromOffset(10,214),UDim2.fromOffset(260,20),11,WHITE)
+local RGBLabel = Text(Picker,"RGB: 255, 25, 120",UDim2.fromOffset(10,214),UDim2.fromOffset(260,20),11,WHITE)
 RGBLabel.ZIndex = 510
 
 local ApplyButton = Instance.new("TextButton")
@@ -715,8 +712,26 @@ local TitleBar = Instance.new("Frame")
 TitleBar.Size = UDim2.new(1,0,0,41)
 TitleBar.BackgroundColor3 = BG
 TitleBar.BorderSizePixel = 0
+TitleBar.ClipsDescendants = true
 TitleBar.Parent = Main
-Text(TitleBar, "Project Astra | t.me/epsteinhub", UDim2.fromOffset(12,0), UDim2.new(1,-24,1,0), 14, WHITE)
+
+-- РОЗОВЫЙ ГРАДИЕНТ В ШАПКЕ
+local TitleGradient = Instance.new("Frame")
+TitleGradient.Size = UDim2.new(1,0,1,0)
+TitleGradient.BackgroundColor3 = Color3.fromRGB(30,20,35)
+TitleGradient.BorderSizePixel = 0
+TitleGradient.Parent = TitleBar
+local TG = Instance.new("UIGradient", TitleGradient)
+TG.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(60,20,80)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(120,30,120)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(40,15,60)),
+})
+TG.Rotation = 0
+
+local TitleLabel = Text(TitleBar, "✦ Project Astra  |  t.me/epsteinhub", UDim2.fromOffset(12,0), UDim2.new(1,-24,1,0), 14, WHITE)
+TitleLabel.ZIndex = 2
+
 Line(Main,41)
 
 local Tabs = Instance.new("Frame")
@@ -791,7 +806,8 @@ local function section(parent, title, y)
     f.BorderSizePixel = 0
     f.Parent = parent
     Stroke(f,1)
-    Text(f,title,UDim2.fromOffset(8,0),UDim2.new(1,-16,1,0),13,ACCENT_COLOR)
+    local lbl = Text(f,title,UDim2.fromOffset(8,0),UDim2.new(1,-16,1,0),13,ACCENT_COLOR)
+    RegisterBorder(lbl,"TextColor3")
     return 26
 end
 
@@ -823,7 +839,7 @@ cY = cY + 6
 cY = cY + section(CombatScroll, "HIT MARKER", cY)
 Checkbox(CombatScroll, "Enable Hit Marker", true, function(v) hitMarkerEnabled = v end, cY); cY = cY + 26
 ColorRow(CombatScroll, "Marker Color", function() return hitMarkerColor end, function(c) hitMarkerColor = c end, cY); cY = cY + 26
-Slider(CombatScroll, "Marker Size", 2, 30, 8, function(v) hitMarkerSize = v end, cY, "px"); cY = cY + 46
+Slider(CombatScroll, "Marker Size", 4, 30, 9, function(v) hitMarkerSize = v end, cY, "px"); cY = cY + 46
 
 cY = cY + 6
 cY = cY + section(CombatScroll, "HIT SOUND", cY)
@@ -907,7 +923,7 @@ Checkbox(VisScroll, "Enable Skybox", false, function(v)
     if v then ApplySkybox(skyboxMode) end
 end, vY); vY = vY + 26
 Dropdown(VisScroll, "Skybox Preset",
-    {"None","Epstein","Gothbreach","Pink Galaxy","Night City","Aurora","Sunset","Space"},
+    {"None","Epstein","Gothbreach","Pink Galaxy","Night City","Aurora","Space","Anime","Neon"},
     "None",
     function(v)
         skyboxMode = v
@@ -1060,9 +1076,9 @@ function RenderWhitelist()
         if p ~= LP then
             local b = Instance.new("TextButton")
             b.Size = UDim2.new(1,-6,0,22)
-            b.BackgroundColor3 = whitelist[p.Name] and Color3.fromRGB(90,30,160) or Color3.fromRGB(20,20,20)
+            b.BackgroundColor3 = whitelist[p.Name] and Color3.fromRGB(120,30,120) or Color3.fromRGB(20,20,20)
             b.BorderSizePixel = 0
-            b.Text = p.Name .. (whitelist[p.Name] and "  OK" or "")
+            b.Text = p.Name .. (whitelist[p.Name] and "  ✓" or "")
             b.TextColor3 = WHITE
             b.Font = Enum.Font.Code
             b.TextSize = 11
@@ -1318,7 +1334,7 @@ ResizeHandle.Position = UDim2.fromScale(1,1)
 ResizeHandle.Size = UDim2.fromOffset(20,20)
 ResizeHandle.BackgroundColor3 = BG
 ResizeHandle.BorderSizePixel = 0
-ResizeHandle.Text = "R"
+ResizeHandle.Text = "◢"
 ResizeHandle.TextColor3 = ACCENT_COLOR
 ResizeHandle.Font = Enum.Font.Code
 ResizeHandle.TextSize = 15
@@ -1450,7 +1466,7 @@ local function getSilentTarget()
     return best
 end
 
--- BULLET TRACER
+-- BULLET TRACER (EpsteinHub V2 версия)
 local function CreateTracer(from, to)
     if not bulletTracerEnabled then return end
     if (to - from).Magnitude < 1 then return end
@@ -1502,7 +1518,7 @@ local function CreateTracer(from, to)
     Debris:AddItem(holder, bulletTracerLife)
 end
 
--- DAMAGE TRACKING + HIT MARKER
+-- DAMAGE TRACKING
 local function watchHumanoid(plr)
     local function hook(char)
         local hum = char:WaitForChild("Humanoid", 5)
@@ -1532,37 +1548,73 @@ local function wasDamagedRecently(plr)
     return t and (tick() - t) <= DAMAGE_WINDOW
 end
 
-local function CreateHitmarker(pos3D)
+-- HIT MARKER (по твоему коду — с ActiveHitmarkers и RenderStepped)
+local function CreateHitmarker(worldPosition)
     if not hitMarkerEnabled then return end
-    local vp, onScreen = Camera:WorldToViewportPoint(pos3D)
-    if not onScreen then return end
+    if not Drawing then return end
 
-    local marker = Instance.new("Frame")
-    marker.AnchorPoint = Vector2.new(0.5,0.5)
-    marker.Position = UDim2.fromOffset(vp.X, vp.Y)
-    marker.Size = UDim2.fromOffset(hitMarkerSize*2, hitMarkerSize*2)
-    marker.BackgroundTransparency = 1
-    marker.Parent = ScreenGui
+    local markerId = tostring(math.random(1, 100000))
+    local markerData = {
+        WorldPosition = worldPosition,
+        Size = hitMarkerSize,
+        Gap = hitMarkerGap,
+        Opacity = 1,
+        Lines = {}
+    }
 
-    for i=1,4 do
-        local line = Instance.new("Frame")
-        line.AnchorPoint = Vector2.new(0.5,0.5)
-        line.Size = UDim2.fromOffset(2, hitMarkerSize)
-        line.BackgroundColor3 = hitMarkerColor
-        line.BorderSizePixel = 0
-        local offset = 8
-        if i == 1 then line.Position = UDim2.new(0.5,0,0.5,-offset)
-        elseif i == 2 then line.Position = UDim2.new(0.5,offset,0.5,0); line.Rotation = 90
-        elseif i == 3 then line.Position = UDim2.new(0.5,0,0.5,offset)
-        elseif i == 4 then line.Position = UDim2.new(0.5,-offset,0.5,0); line.Rotation = 90
-        end
-        line.Parent = marker
+    for i = 1, 4 do
+        local line = Drawing.new("Line")
+        line.Visible = false
+        line.Color = hitMarkerColor
+        line.Thickness = 2.5
+        table.insert(markerData.Lines, line)
     end
 
-    task.delay(0.35, function()
-        if marker and marker.Parent then marker:Destroy() end
+    ActiveHitmarkers[markerId] = markerData
+
+    task.spawn(function()
+        for alpha = 20, 0, -1 do
+            markerData.Opacity = alpha / 20
+            task.wait(0.015)
+        end
+        for _, line in ipairs(markerData.Lines) do
+            pcall(function() line:Remove() end)
+        end
+        ActiveHitmarkers[markerId] = nil
     end)
 end
+
+RS.RenderStepped:Connect(function()
+    for id, marker in pairs(ActiveHitmarkers) do
+        local screenPos, onScreen = Camera:WorldToViewportPoint(marker.WorldPosition)
+        if onScreen and marker.Opacity > 0 then
+            local x, y = screenPos.X, screenPos.Y
+            local size = marker.Size
+            local gap = marker.Gap
+
+            marker.Lines[1].From = Vector2.new(x - gap, y - gap)
+            marker.Lines[1].To = Vector2.new(x - gap - size, y - gap - size)
+
+            marker.Lines[2].From = Vector2.new(x + gap, y - gap)
+            marker.Lines[2].To = Vector2.new(x + gap + size, y - gap - size)
+
+            marker.Lines[3].From = Vector2.new(x - gap, y + gap)
+            marker.Lines[3].To = Vector2.new(x - gap - size, y + gap + size)
+
+            marker.Lines[4].From = Vector2.new(x + gap, y + gap)
+            marker.Lines[4].To = Vector2.new(x + gap + size, y + gap + size)
+
+            for _, line in ipairs(marker.Lines) do
+                line.Transparency = marker.Opacity
+                line.Visible = true
+            end
+        else
+            for _, line in ipairs(marker.Lines) do
+                line.Visible = false
+            end
+        end
+    end
+end)
 
 -- JUMP SHOT
 function ApplyJumpShot()
@@ -1595,7 +1647,64 @@ task.spawn(function()
     end
 end)
 
--- CLICK TRACKING (tracer + hitmarker)
+-- SILENT AIM через hookmetamethod (как в EpsteinHub V2)
+if hookmetamethod and getnamecallmethod then
+    pcall(function()
+        local mt = getrawmetatable(game)
+        if mt then
+            local oldNamecall = mt.__namecall
+            setreadonly(mt, false)
+            mt.__namecall = newcclosure(function(self, ...)
+                local method = getnamecallmethod()
+                local args = {...}
+
+                if silentAimEnabled and method == "FireServer" and self then
+                    local name = self.Name
+                    if name == "Bullet" or name == "Fire" or name == "Shoot" or name == "GunFire" then
+                        local target = getSilentTarget()
+                        if target then
+                            for i, v in ipairs(args) do
+                                if typeof(v) == "Vector3" then
+                                    args[i] = target.Position
+                                elseif typeof(v) == "CFrame" then
+                                    args[i] = CFrame.new(target.Position)
+                                end
+                            end
+                        end
+                    end
+                end
+
+                return oldNamecall(self, unpack(args))
+            end)
+            setreadonly(mt, true)
+        end
+    end)
+end
+
+-- HIT SOUND через hookmetamethod
+if hookmetamethod and getnamecallmethod then
+    pcall(function()
+        local mt = getrawmetatable(game)
+        if mt then
+            local oldNamecall2 = mt.__namecall
+            mt.__namecall = newcclosure(function(self, ...)
+                local method = getnamecallmethod()
+                if method == "FireServer" or method == "InvokeServer" then
+                    if self and self.Name and (self.Name == "BulletHit" or self.Name == "HitShot") then
+                        if hitSoundEnabled and hitSoundObj then
+                            task.spawn(function()
+                                pcall(function() hitSoundObj:Play() end)
+                            end)
+                        end
+                    end
+                end
+                return oldNamecall2(self, ...)
+            end)
+        end
+    end)
+end
+
+-- CLICK TRACKING (tracer + hitmarker на клик)
 local lastClickTime = 0
 UIS.InputBegan:Connect(function(i, gpe)
     if gpe then return end
@@ -1792,13 +1901,15 @@ LP.CharacterAdded:Connect(function()
     end
 end)
 
--- SKYBOX
+-- SKYBOX (с новыми пресетами)
 function ApplySkybox(name)
     if activeSky then activeSky:Destroy(); activeSky = nil end
     if name == "None" then return end
 
     for _,o in ipairs(Lighting:GetChildren()) do
-        if o:IsA("Sky") then o:Destroy() end
+        if o:IsA("Sky") or o:IsA("Atmosphere") or o:IsA("ColorCorrectionEffect") then
+            o:Destroy()
+        end
     end
 
     local s = Instance.new("Sky")
@@ -2137,7 +2248,7 @@ function CreateFreezeButton()
     freezeBtn.Size = UDim2.new(0,110,0,45)
     freezeBtn.Position = UDim2.new(0.1,0,0.4,0)
     freezeBtn.BackgroundColor3 = Color3.fromRGB(30,35,45)
-    freezeBtn.BorderColor3 = Color3.fromRGB(50,120,255)
+    freezeBtn.BorderColor3 = Color3.fromRGB(255,80,180)
     freezeBtn.BorderSizePixel = 2
     freezeBtn.Text = "Freeze Up"
     freezeBtn.TextColor3 = Color3.fromRGB(230,230,230)
@@ -2157,15 +2268,15 @@ function CreateFreezeButton()
         if pressed then
             freezeTargetCF = root.CFrame * CFrame.new(0,50,0)
             freezeBtn.Text = "UNFREEZE"
-            freezeBtn.BackgroundColor3 = Color3.fromRGB(180,40,40)
-            freezeBtn.BorderColor3 = Color3.fromRGB(255,50,50)
+            freezeBtn.BackgroundColor3 = Color3.fromRGB(180,40,80)
+            freezeBtn.BorderColor3 = Color3.fromRGB(255,50,120)
             freezeEnabled = true
         else
             freezeEnabled = false
             freezeTargetCF = nil
             freezeBtn.Text = "Freeze Up"
             freezeBtn.BackgroundColor3 = Color3.fromRGB(30,35,45)
-            freezeBtn.BorderColor3 = Color3.fromRGB(50,120,255)
+            freezeBtn.BorderColor3 = Color3.fromRGB(255,80,180)
         end
     end)
 end
@@ -2188,7 +2299,7 @@ function CreateTPButton()
     tpBtn.Size = UDim2.new(0,110,0,45)
     tpBtn.Position = UDim2.new(0.1,0,0.5,0)
     tpBtn.BackgroundColor3 = Color3.fromRGB(25,30,40)
-    tpBtn.BorderColor3 = Color3.fromRGB(14,88,237)
+    tpBtn.BorderColor3 = Color3.fromRGB(255,80,180)
     tpBtn.BorderSizePixel = 2
     tpBtn.Text = "TP "..tpDistance.." Studs"
     tpBtn.TextColor3 = Color3.fromRGB(240,240,240)
@@ -2218,7 +2329,7 @@ function CreateAirWalkButton()
     awBtn.Size = UDim2.new(0,130,0,45)
     awBtn.Position = UDim2.new(0.1,0,0.5,0)
     awBtn.BackgroundColor3 = Color3.fromRGB(25,30,40)
-    awBtn.BorderColor3 = Color3.fromRGB(14,88,237)
+    awBtn.BorderColor3 = Color3.fromRGB(255,80,180)
     awBtn.BorderSizePixel = 2
     awBtn.Text = "Air Walk"
     awBtn.TextColor3 = Color3.fromRGB(240,240,240)
@@ -2244,8 +2355,8 @@ UIS.InputBegan:Connect(function(inp, gpe)
 end)
 
 -- INIT
-SetBorderColor(Color3.fromRGB(255,25,25))
-SetAccentColor(Color3.fromRGB(255,25,25))
+SetBorderColor(Color3.fromRGB(255,25,120))
+SetAccentColor(Color3.fromRGB(255,25,120))
 LoadColor(ACCENT_COLOR)
 
 task.defer(function() CenterMain() end)
