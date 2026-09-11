@@ -72,7 +72,7 @@ local silentAimSnaplineColor = Color3.fromRGB(255,0,255)
 
 -- Bullet Tracer
 local bulletTracerEnabled = false
-local bulletTracerType    = "Red Laser"  -- "Red Laser" | "Neon Linia Bruh"
+local bulletTracerType    = "Red Laser"
 local bulletTracerLife    = 3
 
 -- Hit Sound
@@ -80,7 +80,18 @@ local hitSoundEnabled = false
 local hitSoundId      = "121566025787365"
 local hitSoundVolume  = 1
 local hitSoundObj     = nil
-local hitSoundHook    = nil
+
+-- Hit Marker
+local hitMarkerEnabled = true
+local hitMarkerColor   = Color3.fromRGB(255,255,255)
+local hitMarkerSize    = 8
+
+-- Damage tracking
+local damageEvents = {}
+local DAMAGE_WINDOW = 0.35
+
+-- Jump Shot
+local jumpShotEnabled = false
 
 -- Rapid Fire
 local rapidFireEnabled = false
@@ -153,9 +164,6 @@ local gunChamsColor   = Color3.fromRGB(255,80,255)
 -- Whitelist
 local whitelistEnabled = false
 local whitelist = {}
-
--- Jump shot / No anim shoot
-local noAnimShootEnabled = false
 
 local keybinds = {
     SilentAim = Enum.KeyCode.Z,
@@ -840,6 +848,12 @@ Slider(CombatScroll, "Lifetime", 1, 10, 3, function(v) bulletTracerLife = v end,
 Dropdown(CombatScroll, "Type", {"Red Laser","Neon Linia Bruh"}, "Red Laser", function(v) bulletTracerType = v end, cY); cY = cY + 54
 
 cY = cY + 6
+cY = cY + section(CombatScroll, "HIT MARKER", cY)
+Checkbox(CombatScroll, "Enable Hit Marker", true, function(v) hitMarkerEnabled = v end, cY); cY = cY + 26
+ColorRow(CombatScroll, "Marker Color", function() return hitMarkerColor end, function(c) hitMarkerColor = c end, cY); cY = cY + 26
+Slider(CombatScroll, "Marker Size", 2, 30, 8, function(v) hitMarkerSize = v end, cY, "px"); cY = cY + 46
+
+cY = cY + 6
 cY = cY + section(CombatScroll, "HIT SOUND", cY)
 Checkbox(CombatScroll, "Enable Hit Sound", false, function(v)
     hitSoundEnabled = v
@@ -1011,6 +1025,10 @@ Checkbox(MiscScroll, "No Clip", false, function(v)
     end
 end, mY); mY = mY + 26
 Checkbox(MiscScroll, "Bunny Hop", false, function(v) bhopEnabled = v end, mY); mY = mY + 26
+Checkbox(MiscScroll, "Jump Shot", false, function(v)
+    jumpShotEnabled = v
+    ApplyJumpShot()
+end, mY); mY = mY + 26
 
 mY = mY + 6
 mY = mY + section(MiscScroll, "FLY", mY)
@@ -1128,6 +1146,10 @@ local function CollectConfig()
         hitSoundEnabled = hitSoundEnabled,
         hitSoundId = hitSoundId,
         hitSoundVolume = hitSoundVolume,
+        hitMarkerEnabled = hitMarkerEnabled,
+        hitMarkerColor = {hitMarkerColor.R,hitMarkerColor.G,hitMarkerColor.B},
+        hitMarkerSize = hitMarkerSize,
+        jumpShotEnabled = jumpShotEnabled,
         rapidFireEnabled = rapidFireEnabled,
         rapidFireValue = rapidFireValue,
         cameraFovEnabled = cameraFovEnabled,
@@ -1181,6 +1203,10 @@ local function ApplyConfig(cfg)
     hitSoundEnabled = cfg.hitSoundEnabled or hitSoundEnabled
     hitSoundId = cfg.hitSoundId or hitSoundId
     hitSoundVolume = cfg.hitSoundVolume or hitSoundVolume
+    hitMarkerEnabled = cfg.hitMarkerEnabled ~= nil and cfg.hitMarkerEnabled or hitMarkerEnabled
+    if cfg.hitMarkerColor then hitMarkerColor = Color3.new(unpack(cfg.hitMarkerColor)) end
+    hitMarkerSize = cfg.hitMarkerSize or hitMarkerSize
+    jumpShotEnabled = cfg.jumpShotEnabled or jumpShotEnabled
     rapidFireEnabled = cfg.rapidFireEnabled or rapidFireEnabled
     rapidFireValue = cfg.rapidFireValue or rapidFireValue
     cameraFovEnabled = cfg.cameraFovEnabled or cameraFovEnabled
@@ -1400,7 +1426,7 @@ if Camera then
 end
 
 --========================================================--
--- WHITELIST HELPERS
+-- WHITELIST HELPER
 --========================================================--
 
 local function IsWhitelisted(plr)
@@ -1409,7 +1435,7 @@ local function IsWhitelisted(plr)
 end
 
 --========================================================--
--- FOV CIRCLE (через Frame)
+-- FOV CIRCLE
 --========================================================--
 
 local FOVFrameGui = Instance.new("ScreenGui")
@@ -1433,7 +1459,7 @@ local FOVCorner = Instance.new("UICorner", FOVFrame)
 FOVCorner.CornerRadius = UDim.new(1,0)
 
 --========================================================--
--- SNAPLINE (Drawing)
+-- SNAPLINE
 --========================================================--
 
 local snapLine
@@ -1488,7 +1514,7 @@ local function getSilentTarget()
 end
 
 --========================================================--
--- BULLET TRACER (Beam как в EpsteinHub V2)
+-- BULLET TRACER
 --========================================================--
 
 local function CreateTracer(from, to)
@@ -1543,7 +1569,110 @@ local function CreateTracer(from, to)
 end
 
 --========================================================--
--- HIT SOUND (hookmetamethod FireServer — как в EpsteinHub V2)
+-- HIT MARKER + DAMAGE TRACKING
+--========================================================--
+
+local function watchHumanoid(plr)
+    local function hook(char)
+        local hum = char:WaitForChild("Humanoid", 5)
+        if not hum then return end
+        local last = hum.Health
+        hum.HealthChanged:Connect(function(h)
+            if h < last then
+                damageEvents[plr] = tick()
+            end
+            last = h
+        end)
+    end
+    if plr.Character then hook(plr.Character) end
+    plr.CharacterAdded:Connect(hook)
+end
+
+for _,p in ipairs(Players:GetPlayers()) do
+    if p ~= LP then watchHumanoid(p) end
+end
+Players.PlayerAdded:Connect(function(p)
+    if p ~= LP then watchHumanoid(p) end
+end)
+
+local function wasDamagedRecently(plr)
+    if not plr then return false end
+    local t = damageEvents[plr]
+    return t and (tick() - t) <= DAMAGE_WINDOW
+end
+
+local function CreateHitmarker(pos3D)
+    if not hitMarkerEnabled then return end
+    local vp, onScreen = Camera:WorldToViewportPoint(pos3D)
+    if not onScreen then return end
+
+    local marker = Instance.new("Frame")
+    marker.AnchorPoint = Vector2.new(0.5,0.5)
+    marker.Position = UDim2.fromOffset(vp.X, vp.Y)
+    marker.Size = UDim2.fromOffset(hitMarkerSize*2, hitMarkerSize*2)
+    marker.BackgroundTransparency = 1
+    marker.Parent = ScreenGui
+
+    for i=1,4 do
+        local line = Instance.new("Frame")
+        line.AnchorPoint = Vector2.new(0.5,0.5)
+        line.Size = UDim2.fromOffset(2, hitMarkerSize)
+        line.BackgroundColor3 = hitMarkerColor
+        line.BorderSizePixel = 0
+        local offset = 8
+        if i == 1 then line.Position = UDim2.new(0.5,0,0.5,-offset)
+        elseif i == 2 then line.Position = UDim2.new(0.5,offset,0.5,0); line.Rotation = 90
+        elseif i == 3 then line.Position = UDim2.new(0.5,0,0.5,offset)
+        elseif i == 4 then line.Position = UDim2.new(0.5,-offset,0.5,0); line.Rotation = 90
+        end
+        line.Parent = marker
+    end
+
+    task.delay(0.35, function()
+        if marker and marker.Parent then marker:Destroy() end
+    end)
+end
+
+--========================================================--
+-- JUMP SHOT
+--========================================================--
+
+local jumpShotPatched = {}
+
+function ApplyJumpShot()
+    if not getgc then
+        warn("[Astra] getgc недоступен — Jump Shot не работает")
+        return
+    end
+    pcall(function()
+        for _, v in pairs(getgc(true)) do
+            if type(v) == "table" and rawget(v, "canShoot") and not jumpShotPatched[v] then
+                local orig = v.canShoot
+                if type(orig) == "function" then
+                    jumpShotPatched[v] = true
+                    v.canShoot = function(...)
+                        if jumpShotEnabled then
+                            return true
+                        end
+                        return orig(...)
+                    end
+                end
+            end
+        end
+    end)
+end
+
+task.spawn(function()
+    while true do
+        task.wait(2)
+        if jumpShotEnabled then
+            ApplyJumpShot()
+        end
+    end
+end)
+
+--========================================================--
+-- HIT SOUND HOOK
 --========================================================--
 
 if hookmetamethod then
@@ -1619,6 +1748,24 @@ if castRaysFunc and hookfunction then
                             end
                         end
                     end
+
+                    -- Hit marker / sound только если цель реально получила урон
+                    task.spawn(function()
+                        local plrTarget = target.Parent and Players:GetPlayerFromCharacter(target.Parent)
+                        task.wait(0.05)
+                        if plrTarget and wasDamagedRecently(plrTarget) then
+                            CreateHitmarker(target.Position)
+                            if hitSoundEnabled and hitSoundObj then
+                                pcall(function() hitSoundObj:Play() end)
+                            end
+                        else
+                            -- fallback: показать hitmarker без проверки урона (для не-игроков)
+                            if not plrTarget then
+                                CreateHitmarker(target.Position)
+                            end
+                        end
+                    end)
+
                     return result
                 end
             else
@@ -1635,7 +1782,7 @@ if castRaysFunc and hookfunction then
     end)
     print("[Astra] Silent aim hooked")
 else
-    warn("[Astra] castRays не найден или hookfunction недоступен — silent aim без попадания")
+    warn("[Astra] castRays не найден или hookfunction недоступен")
 end
 
 --========================================================--
@@ -1643,7 +1790,6 @@ end
 --========================================================--
 
 RS.RenderStepped:Connect(function()
-    -- FOV circle
     local vp = Camera.ViewportSize
     local cx = vp.X/2
     local cy = vp.Y/2
@@ -1652,7 +1798,6 @@ RS.RenderStepped:Connect(function()
     FOVFrame.Visible = silentAimShowFov and silentAimEnabled
     FOVStroke.Color = silentAimFovColor
 
-    -- Snapline
     if snapLine then
         if not silentAimEnabled or not silentAimSnapline then
             snapLine.Visible = false
@@ -1676,7 +1821,7 @@ RS.RenderStepped:Connect(function()
 end)
 
 --========================================================--
--- RAPID FIRE (атрибут rateofFire)
+-- RAPID FIRE
 --========================================================--
 
 local function processToolForRapidFire(tool)
@@ -2136,7 +2281,7 @@ local freezeBtnGui, freezeBtn
 local tpBtnGui, tpBtn
 local awBtnGui, awBtn
 
-local function SetupDraggable(btn, stateKey)
+local function SetupDraggable(btn)
     local dragging, dragInput, dragStart, startPos
     btn.InputBegan:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
@@ -2155,11 +2300,6 @@ local function SetupDraggable(btn, stateKey)
         if i == dragInput and dragging then
             local d = i.Position - dragStart
             btn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
-        end
-    end)
-    btn.MouseButton1Click:Connect(function()
-        if not dragging and btn:GetAttribute("OnClick") then
-            -- handled per button
         end
     end)
 end
