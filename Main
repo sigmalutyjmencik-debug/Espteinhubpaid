@@ -1,5 +1,5 @@
--- Project Astra v8 | t.me/epsteinhub
--- Все опасные вызовы обёрнуты в pcall, gethui вызывается только если существует
+-- Project Astra v9 | t.me/epsteinhub
+-- Combat: EpsteinHub V2 core | UI: Nyxon base
 
 local UIS = game:GetService("UserInputService")
 local RS = game:GetService("RunService")
@@ -8,6 +8,7 @@ local Lighting = game:GetService("Lighting")
 local Debris = game:GetService("Debris")
 local SoundService = game:GetService("SoundService")
 local HttpService = game:GetService("HttpService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LP = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
@@ -56,24 +57,25 @@ local WHITE = Color3.fromRGB(235,235,235)
 local GRAY = Color3.fromRGB(145,145,150)
 local ACCENT = Color3.fromRGB(255,25,120)
 
-local silentAimEnabled = false
-local silentAimFov = 200
-local silentAimPart = "Head"
-local silentAimTeamCheck = false
-local silentAimVisCheck = false
-local silentAimShowFov = true
-local silentAimSnapline = false
+-- STATE
+local SILENT_AIM = false
+local HIT_CHANCE = 95
+local HIT_PART = "Head"
+local FOV_RADIUS = 200
+local SHOW_FOV = true
+local TEAM_CHECK = false
+local SNAPLINE = false
+local TRACER = false
+local TRACER_TYPE = "Red Laser"
+local TRACER_LIFE = 3
+local RAPID_FIRE = false
+local RAPID_VALUE = 10000000
+local HIT_SOUND = false
+local HIT_SOUND_ID = "121566025787365"
+local HIT_SOUND_VOL = 1
+
 local silentAimFovColor = Color3.fromRGB(255,80,180)
 local silentAimSnaplineColor = Color3.fromRGB(255,0,255)
-
-local bulletTracerEnabled = false
-local bulletTracerType = "Red Laser"
-local bulletTracerLife = 3
-
-local hitSoundEnabled = false
-local hitSoundId = "121566025787365"
-local hitSoundVolume = 1
-local hitSoundObj = nil
 
 local hitMarkerEnabled = true
 local hitMarkerColor = Color3.fromRGB(255,0,0)
@@ -81,11 +83,7 @@ local hitMarkerSize = 9
 local hitMarkerGap = 4
 local ActiveHitmarkers = {}
 
-local damageEvents = {}
-local DAMAGE_WINDOW = 0.35
-
-local rapidFireEnabled = false
-local rapidFireValue = 10000000
+local JUMP_SHOT = false
 
 local cameraFovEnabled = false
 local cameraFovValue = 90
@@ -154,6 +152,7 @@ local keybinds = {
     Freeze = Enum.KeyCode.X,
 }
 
+-- GUI
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "ProjectAstra"
 ScreenGui.ResetOnSpawn = false
@@ -645,7 +644,7 @@ local function ButtonRow(parent, label, callback, yPos)
     return btn
 end
 
--- MAIN WINDOW
+-- MAIN
 local Main = Instance.new("Frame")
 Main.Name = "Main"
 Main.Size = UDim2.fromOffset(944,593)
@@ -768,29 +767,36 @@ local function Section(parent, title, y)
     return 26
 end
 
--- COMBAT
+-- ============================================================
+-- COMBAT (полностью из EpsteinHub V2)
+-- ============================================================
 local CombatScroll = Scrolls[1]
 local cY = 0
 
 cY = cY + Section(CombatScroll, "SILENT AIM", cY)
-Checkbox(CombatScroll, "Enable Silent Aim", false, function(v) silentAimEnabled = v end, cY); cY = cY + 26
-Checkbox(CombatScroll, "Team Check", false, function(v) silentAimTeamCheck = v end, cY); cY = cY + 26
-Checkbox(CombatScroll, "Visible Check", false, function(v) silentAimVisCheck = v end, cY); cY = cY + 26
-Slider(CombatScroll, "FOV Radius", 1, 500, 200, function(v) silentAimFov = v end, cY, "px"); cY = cY + 46
-Dropdown(CombatScroll, "Hit Part", {"Head","Torso","HumanoidRootPart","Random"}, "Head", function(v) silentAimPart = v end, cY); cY = cY + 54
+Checkbox(CombatScroll, "Enable Silent Aim", false, function(v) SILENT_AIM = v end, cY); cY = cY + 26
+Checkbox(CombatScroll, "Team Check", false, function(v) TEAM_CHECK = v end, cY); cY = cY + 26
+Checkbox(CombatScroll, "Show FOV", true, function(v) SHOW_FOV = v end, cY); cY = cY + 26
+Checkbox(CombatScroll, "Snapline", false, function(v) SNAPLINE = v end, cY); cY = cY + 26
+Slider(CombatScroll, "Hit Chance", 0, 100, 95, function(v) HIT_CHANCE = v end, cY, "%"); cY = cY + 46
+Slider(CombatScroll, "FOV Radius", 1, 500, 200, function(v) FOV_RADIUS = v end, cY, "px"); cY = cY + 46
+Dropdown(CombatScroll, "Hit Part", {"Head","Torso","HumanoidRootPart","Random"}, "Head", function(v) HIT_PART = v end, cY); cY = cY + 54
 
 cY = cY + 6
 cY = cY + Section(CombatScroll, "FOV VISUAL", cY)
-Checkbox(CombatScroll, "Show FOV Circle", true, function(v) silentAimShowFov = v end, cY); cY = cY + 26
 ColorRow(CombatScroll, "FOV Color", function() return silentAimFovColor end, function(c) silentAimFovColor = c end, cY); cY = cY + 26
-Checkbox(CombatScroll, "Show Snapline", false, function(v) silentAimSnapline = v end, cY); cY = cY + 26
 ColorRow(CombatScroll, "Snapline Color", function() return silentAimSnaplineColor end, function(c) silentAimSnaplineColor = c end, cY); cY = cY + 26
 
 cY = cY + 6
+cY = cY + Section(CombatScroll, "RAPID FIRE", cY)
+Checkbox(CombatScroll, "Enable Rapid Fire", false, function(v) RAPID_FIRE = v end, cY); cY = cY + 26
+Slider(CombatScroll, "Rate Value (x100k)", 1, 100, 100, function(v) RAPID_VALUE = v * 100000 end, cY); cY = cY + 46
+
+cY = cY + 6
 cY = cY + Section(CombatScroll, "BULLET TRACER", cY)
-Checkbox(CombatScroll, "Enable Tracer", false, function(v) bulletTracerEnabled = v end, cY); cY = cY + 26
-Slider(CombatScroll, "Lifetime", 1, 10, 3, function(v) bulletTracerLife = v end, cY, "s"); cY = cY + 46
-Dropdown(CombatScroll, "Type", {"Red Laser","Neon Linia Bruh"}, "Red Laser", function(v) bulletTracerType = v end, cY); cY = cY + 54
+Checkbox(CombatScroll, "Enable Tracer", false, function(v) TRACER = v end, cY); cY = cY + 26
+Slider(CombatScroll, "Lifetime", 1, 10, 3, function(v) TRACER_LIFE = v end, cY, "s"); cY = cY + 46
+Dropdown(CombatScroll, "Type", {"Red Laser","Neon Linia Bruh"}, "Red Laser", function(v) TRACER_TYPE = v end, cY); cY = cY + 54
 
 cY = cY + 6
 cY = cY + Section(CombatScroll, "HIT MARKER", cY)
@@ -800,19 +806,8 @@ Slider(CombatScroll, "Marker Size", 4, 30, 9, function(v) hitMarkerSize = v end,
 
 cY = cY + 6
 cY = cY + Section(CombatScroll, "HIT SOUND", cY)
-Checkbox(CombatScroll, "Enable Hit Sound", false, function(v)
-    hitSoundEnabled = v
-    if v and not hitSoundObj then
-        hitSoundObj = Instance.new("Sound")
-        hitSoundObj.SoundId = "rbxassetid://" .. hitSoundId
-        hitSoundObj.Volume = hitSoundVolume
-        hitSoundObj.Parent = SoundService
-    end
-end, cY); cY = cY + 26
-Slider(CombatScroll, "Volume", 0, 10, 1, function(v)
-    hitSoundVolume = v
-    if hitSoundObj then hitSoundObj.Volume = v end
-end, cY); cY = cY + 46
+Checkbox(CombatScroll, "Enable Hit Sound", false, function(v) HIT_SOUND = v end, cY); cY = cY + 26
+Slider(CombatScroll, "Volume", 0, 10, 1, function(v) HIT_SOUND_VOL = v end, cY); cY = cY + 46
 
 local soundInput = Instance.new("Frame")
 soundInput.Position = UDim2.fromOffset(10,cY)
@@ -825,25 +820,19 @@ sBox.Position = UDim2.fromOffset(0,20)
 sBox.Size = UDim2.new(1,0,0,24)
 sBox.BackgroundColor3 = DROPBG
 sBox.BorderSizePixel = 0
-sBox.Text = hitSoundId
+sBox.Text = HIT_SOUND_ID
 sBox.TextColor3 = WHITE
 sBox.Font = Enum.Font.Code
 sBox.TextSize = 11
 sBox.ClearTextOnFocus = false
 sBox.Parent = soundInput
 Stroke(sBox,1)
-sBox.FocusLost:Connect(function()
-    hitSoundId = sBox.Text
-    if hitSoundObj then hitSoundObj.SoundId = "rbxassetid://" .. hitSoundId end
-end)
+sBox.FocusLost:Connect(function() HIT_SOUND_ID = sBox.Text end)
 cY = cY + 50
 
-cY = cY + 6
-cY = cY + Section(CombatScroll, "RAPID FIRE", cY)
-Checkbox(CombatScroll, "Enable Rapid Fire", false, function(v) rapidFireEnabled = v end, cY); cY = cY + 26
-Slider(CombatScroll, "Rate Value (x100k)", 1, 100, 100, function(v) rapidFireValue = v * 100000 end, cY); cY = cY + 46
-
+-- ============================================================
 -- VISUALS
+-- ============================================================
 local VisScroll = Scrolls[2]
 local vY = 0
 
@@ -924,7 +913,9 @@ Checkbox(VisScroll, "Fullbright", false, function(v)
     end
 end, vY); vY = vY + 26
 
+-- ============================================================
 -- MISC
+-- ============================================================
 local MiscScroll = Scrolls[3]
 local mY = 0
 
@@ -961,6 +952,7 @@ Checkbox(MiscScroll, "No Clip", false, function(v)
     end
 end, mY); mY = mY + 26
 Checkbox(MiscScroll, "Bunny Hop", false, function(v) bhopEnabled = v end, mY); mY = mY + 26
+Checkbox(MiscScroll, "Jump Shot", false, function(v) JUMP_SHOT = v end, mY); mY = mY + 26
 
 mY = mY + 6
 mY = mY + Section(MiscScroll, "FLY", mY)
@@ -996,7 +988,9 @@ Checkbox(MiscScroll, "Show Air Walk Button (mobile)", false, function(v)
     if v then CreateAirWalkButton() else DestroyAirWalkButton() end
 end, mY); mY = mY + 26
 
+-- ============================================================
 -- SETTINGS
+-- ============================================================
 local SetScroll = Scrolls[4]
 local sY = 0
 
@@ -1046,68 +1040,6 @@ end
 Players.PlayerAdded:Connect(RenderWhitelist)
 Players.PlayerRemoving:Connect(RenderWhitelist)
 RenderWhitelist()
-
-sY = sY + 6
-sY = sY + Section(SetScroll, "CONFIG", sY)
-
-local cfgPath = "ProjectAstra_Config.json"
-
-local function CollectConfig()
-    return {
-        silentAimEnabled = silentAimEnabled,
-        silentAimFov = silentAimFov,
-        silentAimPart = silentAimPart,
-        bulletTracerEnabled = bulletTracerEnabled,
-        bulletTracerType = bulletTracerType,
-        hitSoundEnabled = hitSoundEnabled,
-        hitSoundId = hitSoundId,
-        hitMarkerEnabled = hitMarkerEnabled,
-        rapidFireEnabled = rapidFireEnabled,
-        rapidFireValue = rapidFireValue,
-        espEnabled = espEnabled,
-        espBox = espBox, espName = espName, espHealth = espHealth,
-        espDistance = espDistance, espWeapon = espWeapon,
-        customHandsEnabled = customHandsEnabled,
-        skyboxEnabled = skyboxEnabled,
-        skyboxMode = skyboxMode,
-        speedHackEnabled = speedHackEnabled,
-        speedValue = speedValue,
-        noClipEnabled = noClipEnabled,
-        flyEnabled = flyEnabled,
-        flySpeed = flySpeed,
-    }
-end
-
-local function ApplyConfig(cfg)
-    if not cfg then return end
-    silentAimEnabled = cfg.silentAimEnabled or silentAimEnabled
-    silentAimFov = cfg.silentAimFov or silentAimFov
-    bulletTracerEnabled = cfg.bulletTracerEnabled or bulletTracerEnabled
-    hitSoundEnabled = cfg.hitSoundEnabled or hitSoundEnabled
-    hitMarkerEnabled = cfg.hitMarkerEnabled ~= nil and cfg.hitMarkerEnabled or hitMarkerEnabled
-    rapidFireEnabled = cfg.rapidFireEnabled or rapidFireEnabled
-    espEnabled = cfg.espEnabled or espEnabled
-    customHandsEnabled = cfg.customHandsEnabled or customHandsEnabled
-    skyboxEnabled = cfg.skyboxEnabled or skyboxEnabled
-    speedHackEnabled = cfg.speedHackEnabled or speedHackEnabled
-    flyEnabled = cfg.flyEnabled or flyEnabled
-end
-
-ButtonRow(SetScroll, "Save Config (JSON)", function()
-    pcall(function()
-        if writefile then
-            writefile(cfgPath, HttpService:JSONEncode(CollectConfig()))
-        end
-    end)
-end, sY); sY = sY + 30
-
-ButtonRow(SetScroll, "Load Config (JSON)", function()
-    pcall(function()
-        if isfile and isfile(cfgPath) then
-            ApplyConfig(HttpService:JSONDecode(readfile(cfgPath)))
-        end
-    end)
-end, sY); sY = sY + 30
 
 local function SelectTab(index)
     for i,page in ipairs(Pages) do
@@ -1261,15 +1193,15 @@ local function IsWhitelisted(plr)
     return whitelist[plr.Name] == true
 end
 
--- FOV CIRCLE
+-- ============================================================
+-- FOV CIRCLE (Frame — как в EpsteinHub)
+-- ============================================================
 local FOVFrameGui = Instance.new("ScreenGui")
 FOVFrameGui.Name = "AstraFOV"
 FOVFrameGui.ResetOnSpawn = false
 FOVFrameGui.IgnoreGuiInset = true
 pcall(function() FOVFrameGui.Parent = GUI_PARENT end)
-if not FOVFrameGui.Parent then
-    FOVFrameGui.Parent = LP:WaitForChild("PlayerGui")
-end
+if not FOVFrameGui.Parent then FOVFrameGui.Parent = LP:WaitForChild("PlayerGui") end
 
 local FOVFrame = Instance.new("Frame")
 FOVFrame.BackgroundTransparency = 1
@@ -1285,6 +1217,9 @@ FOVStroke.Transparency = 0.3
 local FOVCorner = Instance.new("UICorner", FOVFrame)
 FOVCorner.CornerRadius = UDim.new(1,0)
 
+-- ============================================================
+-- SNAPLINE (Drawing)
+-- ============================================================
 local snapLine = nil
 if Drawing then
     snapLine = Drawing.new("Line")
@@ -1294,37 +1229,30 @@ if Drawing then
     snapLine.Color = silentAimSnaplineColor
 end
 
+-- ============================================================
+-- getSilentTarget (как в EpsteinHub)
+-- ============================================================
 local function getSilentTarget()
-    local best, bd = nil, silentAimFov
+    local best, bd = nil, FOV_RADIUS
     local vp = Camera.ViewportSize
     local center = Vector2.new(vp.X/2, vp.Y/2)
 
     for _,p in ipairs(Players:GetPlayers()) do
         if p == LP then continue end
-        if silentAimTeamCheck and p.Team == LP.Team then continue end
+        if TEAM_CHECK and p.Team == LP.Team then continue end
         if IsWhitelisted(p) then continue end
         local char = p.Character
         if not char then continue end
         local hum = char:FindFirstChildOfClass("Humanoid")
         if not hum or hum.Health <= 0 then continue end
 
-        local partName = silentAimPart
+        local partName = HIT_PART
         if partName == "Random" then
             local opts = {"Head","Torso","HumanoidRootPart"}
             partName = opts[math.random(1, #opts)]
         end
         local part = char:FindFirstChild(partName) or char:FindFirstChild("Head")
         if not part then continue end
-
-        if silentAimVisCheck then
-            local rp = RaycastParams.new()
-            local filter = {Camera}
-            if LP.Character then table.insert(filter, LP.Character) end
-            rp.FilterDescendantsInstances = filter
-            rp.FilterType = Enum.RaycastFilterType.Exclude
-            local ray = workspace:Raycast(Camera.CFrame.Position, (part.Position - Camera.CFrame.Position).Unit * 1000, rp)
-            if not ray or not ray.Instance or not ray.Instance:IsDescendantOf(char) then continue end
-        end
 
         local pos, onS = Camera:WorldToViewportPoint(part.Position)
         if not onS then continue end
@@ -1334,8 +1262,11 @@ local function getSilentTarget()
     return best
 end
 
+-- ============================================================
+-- TRACER (Beam — как в EpsteinHub)
+-- ============================================================
 local function CreateTracer(from, to)
-    if not bulletTracerEnabled then return end
+    if not TRACER then return end
     if (to - from).Magnitude < 1 then return end
 
     local holder = Instance.new("Part")
@@ -1361,7 +1292,7 @@ local function CreateTracer(from, to)
     beam.LightEmission = 1
     beam.LightInfluence = 0
 
-    if bulletTracerType == "Red Laser" then
+    if TRACER_TYPE == "Red Laser" then
         beam.Texture = "rbxassetid://6060542021"
         beam.TextureMode = Enum.TextureMode.Wrap
         beam.TextureLength = 3
@@ -1382,38 +1313,12 @@ local function CreateTracer(from, to)
     end
 
     beam.Parent = holder
-    Debris:AddItem(holder, bulletTracerLife)
+    Debris:AddItem(holder, TRACER_LIFE)
 end
 
-local function watchHumanoid(plr)
-    local function hook(char)
-        local hum = char:WaitForChild("Humanoid", 5)
-        if not hum then return end
-        local last = hum.Health
-        hum.HealthChanged:Connect(function(h)
-            if h < last then
-                damageEvents[plr] = tick()
-            end
-            last = h
-        end)
-    end
-    if plr.Character then hook(plr.Character) end
-    plr.CharacterAdded:Connect(hook)
-end
-
-for _,p in ipairs(Players:GetPlayers()) do
-    if p ~= LP then watchHumanoid(p) end
-end
-Players.PlayerAdded:Connect(function(p)
-    if p ~= LP then watchHumanoid(p) end
-end)
-
-local function wasDamagedRecently(plr)
-    if not plr then return false end
-    local t = damageEvents[plr]
-    return t and (tick() - t) <= DAMAGE_WINDOW
-end
-
+-- ============================================================
+-- HIT MARKER (в точке попадания трейсера)
+-- ============================================================
 local function CreateHitmarker(worldPosition)
     if not hitMarkerEnabled then return end
     if not Drawing then return end
@@ -1478,67 +1383,120 @@ RS.RenderStepped:Connect(function()
     end
 end)
 
--- SILENT AIM через подмену Camera.CFrame в момент выстрела (без метатаблиц)
-local silentAimActive = false
-
-UIS.InputBegan:Connect(function(i, gpe)
-    if gpe then return end
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        if silentAimEnabled then
-            local target = getSilentTarget()
-            if target then
-                silentAimActive = true
-                local oldCF = Camera.CFrame
-                local targetPos = target.Position + target.CFrame.LookVector * 0.5
-                local newCF = CFrame.new(Camera.CFrame.Position, targetPos)
-                Camera.CFrame = newCF
-
-                task.delay(0.05, function()
-                    pcall(function() Camera.CFrame = oldCF end)
-                    silentAimActive = false
-                end)
-
-                if bulletTracerEnabled then
-                    pcall(function() CreateTracer(Camera.CFrame.Position, target.Position) end)
+-- ============================================================
+-- SILENT AIM (hookfunction castRays из EpsteinHub)
+-- ============================================================
+do
+    local blaster = ReplicatedStorage:FindFirstChild("Blaster")
+    local castRaysFunc = nil
+    if blaster then
+        local util = blaster:FindFirstChild("Utility")
+        if util then
+            local cr = util:FindFirstChild("castRays")
+            if cr then
+                local ok, f = pcall(require, cr)
+                if ok and type(f) == "function" then
+                    castRaysFunc = f
                 end
-
-                local targetChar = target.Parent
-                local targetPosSave = target.Position
-                task.spawn(function()
-                    task.wait(0.08)
-                    local plrTarget = nil
-                    pcall(function()
-                        if targetChar then
-                            plrTarget = Players:GetPlayerFromCharacter(targetChar)
-                        end
-                    end)
-                    if plrTarget then
-                        if wasDamagedRecently(plrTarget) then
-                            pcall(function() CreateHitmarker(targetPosSave) end)
-                            if hitSoundEnabled and hitSoundObj then
-                                pcall(function() hitSoundObj:Play() end)
-                            end
-                        end
-                    else
-                        pcall(function() CreateHitmarker(targetPosSave) end)
-                    end
-                end)
             end
         end
     end
-end)
 
+    if castRaysFunc and type(hookfunction) == "function" then
+        pcall(function()
+            local original
+            original = hookfunction(castRaysFunc, function(plr, origin, dirs, ...)
+                if plr == LP and SILENT_AIM and type(dirs) == "table" then
+                    for k in pairs(dirs) do
+                        dirs[k] = Vector3.new(0,0,-1)
+                    end
+                end
+
+                local result = original(plr, origin, dirs, ...)
+
+                if plr == LP then
+                    local target = getSilentTarget()
+                    if target then
+                        if TRACER then
+                            pcall(function() CreateTracer(origin, target.Position) end)
+                        end
+
+                        if HIT_CHANCE/100 > math.random() then
+                            if type(result) == "table" then
+                                if result.position then
+                                    result.position = target.Position
+                                    result.instance = target
+                                    if target.Parent then
+                                        result.taggedHumanoid = target.Parent:FindFirstChildOfClass("Humanoid")
+                                    end
+                                elseif result[1] and type(result[1]) == "table" then
+                                    result[1].position = target.Position
+                                    result[1].instance = target
+                                    if target.Parent then
+                                        result[1].taggedHumanoid = target.Parent:FindFirstChildOfClass("Humanoid")
+                                    end
+                                end
+                            end
+
+                            pcall(function() CreateHitmarker(target.Position) end)
+
+                            if HIT_SOUND then
+                                task.spawn(function()
+                                    local s = Instance.new("Sound")
+                                    s.SoundId = "rbxassetid://"..HIT_SOUND_ID
+                                    s.Volume = HIT_SOUND_VOL
+                                    s.Parent = SoundService
+                                    s:Play()
+                                    task.wait(2)
+                                    s:Destroy()
+                                end)
+                            end
+
+                            return result
+                        end
+                    end
+                end
+
+                return result
+            end)
+        end)
+    end
+end
+
+-- ============================================================
+-- JUMP SHOT (getgc canShoot из EpsteinHub)
+-- ============================================================
+if type(getgc) == "function" then
+    pcall(function()
+        for _, v in pairs(getgc(true)) do
+            if type(v) == "table" then
+                local ok, canShoot = pcall(function() return rawget(v, "canShoot") end)
+                if ok and type(canShoot) == "function" then
+                    local orig = canShoot
+                    v.canShoot = function(...)
+                        if JUMP_SHOT then return true end
+                        return orig(...)
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- ============================================================
+-- SNAPLINE + FOV RENDER
+-- ============================================================
 RS.RenderStepped:Connect(function()
     local vp = Camera.ViewportSize
     local cx = vp.X/2
     local cy = vp.Y/2
-    FOVFrame.Position = UDim2.fromOffset(cx - silentAimFov, cy - silentAimFov)
-    FOVFrame.Size = UDim2.fromOffset(silentAimFov*2, silentAimFov*2)
-    FOVFrame.Visible = silentAimShowFov and silentAimEnabled
+    FOVFrame.Position = UDim2.fromOffset(cx - FOV_RADIUS, cy - FOV_RADIUS)
+    FOVFrame.Size = UDim2.fromOffset(FOV_RADIUS*2, FOV_RADIUS*2)
+    FOVFrame.Visible = SHOW_FOV and SILENT_AIM
     FOVStroke.Color = silentAimFovColor
 
     if snapLine then
-        if not silentAimEnabled or not silentAimSnapline then
+        if not SILENT_AIM or not SNAPLINE then
             snapLine.Visible = false
         else
             local t = getSilentTarget()
@@ -1559,13 +1517,16 @@ RS.RenderStepped:Connect(function()
     end
 end)
 
+-- ============================================================
+-- RAPID FIRE (EpsteinHub — через атрибут rateofFire)
+-- ============================================================
 local function processToolForRapidFire(tool)
-    if not rapidFireEnabled then return end
+    if not RAPID_FIRE then return end
     if not tool or not tool:IsA("Tool") then return end
     for attrName, _ in pairs(tool:GetAttributes()) do
         if attrName:lower() == "rateoffire" then
             pcall(function()
-                tool:SetAttribute(attrName, rapidFireValue)
+                tool:SetAttribute(attrName, RAPID_VALUE)
             end)
         end
     end
@@ -1588,7 +1549,7 @@ LP.CharacterAdded:Connect(hookCharForRapid)
 task.spawn(function()
     while true do
         task.wait(0.5)
-        if rapidFireEnabled and LP.Character then
+        if RAPID_FIRE and LP.Character then
             for _,item in ipairs(LP.Character:GetChildren()) do
                 processToolForRapidFire(item)
             end
@@ -1596,6 +1557,9 @@ task.spawn(function()
     end
 end)
 
+-- ============================================================
+-- CUSTOM HANDS
+-- ============================================================
 local TARGET_ARM_NAMES = {
     ["RightArm"] = true,
     ["LeftArm"] = true,
@@ -1681,6 +1645,9 @@ LP.CharacterAdded:Connect(function()
     end
 end)
 
+-- ============================================================
+-- SKYBOX
+-- ============================================================
 function ApplySkybox(name)
     if activeSky then activeSky:Destroy(); activeSky = nil end
     if name == "None" then return end
@@ -1724,6 +1691,9 @@ function ApplySkybox(name)
     activeSky = s
 end
 
+-- ============================================================
+-- ESP
+-- ============================================================
 local function createESP(player)
     if espCache[player] then return end
     if not Drawing then return end
@@ -1838,6 +1808,9 @@ RS.RenderStepped:Connect(function()
     end
 end)
 
+-- ============================================================
+-- MAIN HEARTBEAT
+-- ============================================================
 local wasInAirBhop = false
 
 RS.Heartbeat:Connect(function(dt)
