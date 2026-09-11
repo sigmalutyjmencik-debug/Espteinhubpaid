@@ -1,6 +1,6 @@
 --========================================================--
 -- PROJECT ASTRA | t.me/epsteinhub
--- Delta-safe build v2
+-- Combat: EpsteinHub V2 core | UI: Nyxon base
 --========================================================--
 
 local UIS = game:GetService("UserInputService")
@@ -9,7 +9,10 @@ local TS = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
 local HttpService = game:GetService("HttpService")
-local Workspace = game:GetService("Workspace")
+local Debris = game:GetService("Debris")
+local SoundService = game:GetService("SoundService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterGui = game:GetService("StarterGui")
 
 local LP = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
@@ -17,7 +20,7 @@ local Camera = workspace.CurrentCamera
 local ok_cg, CoreGui = pcall(function() return game:GetService("CoreGui") end)
 if not ok_cg then CoreGui = LP:WaitForChild("PlayerGui") end
 
-for _, n in ipairs({"NyxonProject","ProjectAstra","EpsteinHub","EpsteinMobile","EpsteinStats","AstraFreezeUI","AstraTPButton","AstraAirWalkButton"}) do
+for _, n in ipairs({"NyxonProject","ProjectAstra","EpsteinHub","EpsteinHubV2","EpsteinMobile","EpsteinStats","Epstein_Teleport","NoclipButton","FurryDropButton","FOV_Indicator","EpsteinFOV","AstraFreezeUI","AstraTPButton","AstraAirWalkButton"}) do
     pcall(function()
         local g = CoreGui:FindFirstChild(n)
         if g then g:Destroy() end
@@ -25,6 +28,16 @@ for _, n in ipairs({"NyxonProject","ProjectAstra","EpsteinHub","EpsteinMobile","
 end
 
 print("[Astra] Starting...")
+
+local function Notify(txt)
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = "Project Astra",
+            Text = tostring(txt),
+            Duration = 3
+        })
+    end)
+end
 
 --========================================================--
 -- COLORS
@@ -45,37 +58,41 @@ local ACCENT_COLOR = Color3.fromRGB(255,25,25)
 -- STATE
 --========================================================--
 
+-- Silent Aim
 local silentAimEnabled   = false
-local silentAimFov       = 150
+local silentAimFov       = 200
 local silentAimPart      = "Head"
 local silentAimTeamCheck = false
 local silentAimVisCheck  = false
-local silentAimDrawFov   = true
-local silentAimFovColor  = Color3.fromRGB(255,25,25)
-local silentAimSnapline  = true
-local silentAimSnaplineColor = Color3.fromRGB(255,25,25)
+local silentAimHitChance = 95
+local silentAimShowFov   = true
+local silentAimSnapline  = false
+local silentAimFovColor  = Color3.fromRGB(150,50,220)
+local silentAimSnaplineColor = Color3.fromRGB(255,0,255)
 
-local bulletTracerEnabled = true
-local bulletTracerColor   = Color3.fromRGB(75,140,255)
-local bulletTracerLife    = 0.15
+-- Bullet Tracer
+local bulletTracerEnabled = false
+local bulletTracerType    = "Red Laser"  -- "Red Laser" | "Neon Linia Bruh"
+local bulletTracerLife    = 3
 
-local bulletMarkerEnabled = true
-local bulletMarkerColor   = Color3.fromRGB(255,255,255)
-local bulletMarkerSize    = 8
-
+-- Hit Sound
 local hitSoundEnabled = false
-local hitSoundId      = "rbxassetid://9114470561"
+local hitSoundId      = "121566025787365"
 local hitSoundVolume  = 1
+local hitSoundObj     = nil
+local hitSoundHook    = nil
 
--- Rapid Fire (новый)
+-- Rapid Fire
 local rapidFireEnabled = false
-local rapidFireValue   = 10000000  -- значение rateofFire
+local rapidFireValue   = 10000000
 
+-- Camera
 local cameraFovEnabled = false
 local cameraFovValue   = 90
 local noFogEnabled     = false
 local fullbrightEnabled = false
 
+-- ESP
 local espEnabled   = false
 local espBox       = true
 local espName      = true
@@ -88,11 +105,13 @@ local espDistColor = Color3.fromRGB(255,255,255)
 local espWeapColor = Color3.fromRGB(255,200,0)
 local espCache     = {}
 
+-- Custom Hands
 local customHandsEnabled = false
 local customHandsColor   = Color3.fromRGB(160,32,240)
 local customHandsTransp  = 0.55
 local activeLockedArms   = {}
 
+-- Skybox
 local skyboxEnabled = false
 local skyboxMode    = "None"
 local activeSky     = nil
@@ -105,6 +124,7 @@ local SKYBOXES = {
     Space           = "rbxassetid://85646454",
 }
 
+-- Movement
 local speedHackEnabled = false
 local speedValue       = 50
 local infJumpEnabled   = false
@@ -116,21 +136,26 @@ local bhopEnabled      = false
 local flyEnabled       = false
 local flySpeed         = 50
 
+-- Freeze / TP / Air Walk
 local freezeEnabled  = false
 local freezeTargetCF = nil
-
-local gunChamsEnabled = false
-local gunChamsColor   = Color3.fromRGB(255,80,255)
-
--- Air Walk
+local tpDistance     = 100
+local tpKey          = Enum.KeyCode.T
 local airWalkDuration = 3
 local airWalkHeight   = 100
 local airWalkKey      = Enum.KeyCode.V
 local airWalkBusy     = false
 
--- TP Button
-local tpDistance      = 100
-local tpKey           = Enum.KeyCode.T
+-- Gun Chams
+local gunChamsEnabled = false
+local gunChamsColor   = Color3.fromRGB(255,80,255)
+
+-- Whitelist
+local whitelistEnabled = false
+local whitelist = {}
+
+-- Jump shot / No anim shoot
+local noAnimShootEnabled = false
 
 local keybinds = {
     SilentAim = Enum.KeyCode.Z,
@@ -222,25 +247,6 @@ local function Line(parent, y)
     l.Parent = parent
     RegisterAccent(l,"BackgroundColor3")
     return l
-end
-
---========================================================--
--- FOV Circle (Drawing)
---========================================================--
-
-local fovCircle, fovSnapline
-if Drawing then
-    fovCircle = Drawing.new("Circle")
-    fovCircle.Thickness = 1.5
-    fovCircle.Filled = false
-    fovCircle.NumSides = 60
-    fovCircle.Visible = false
-    fovCircle.Transparency = 1
-
-    fovSnapline = Drawing.new("Line")
-    fovSnapline.Thickness = 1
-    fovSnapline.Visible = false
-    fovSnapline.Transparency = 1
 end
 
 --========================================================--
@@ -676,6 +682,24 @@ local function ColorRow(parent, label, getColor, setColor, yPos)
     return container
 end
 
+local function ButtonRow(parent, label, callback, yPos)
+    local btn = Instance.new("TextButton")
+    btn.Position = UDim2.fromOffset(10, yPos)
+    btn.Size = UDim2.new(1,-20,0,26)
+    btn.BackgroundColor3 = ACCENT_COLOR
+    btn.BorderSizePixel = 0
+    btn.Text = label
+    btn.TextColor3 = WHITE
+    btn.Font = Enum.Font.Code
+    btn.TextSize = 12
+    btn.AutoButtonColor = false
+    btn.Parent = parent
+    Stroke(btn,1)
+    RegisterAccent(btn,"BackgroundColor3")
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
 --========================================================--
 -- MAIN WINDOW
 --========================================================--
@@ -795,31 +819,41 @@ local cY = 0
 
 cY = cY + section(CombatScroll, "SILENT AIM", cY)
 Checkbox(CombatScroll, "Enable Silent Aim", false, function(v) silentAimEnabled = v end, cY); cY = cY + 26
-Slider(CombatScroll, "Silent Aim FOV", 10, 500, 150, function(v) silentAimFov = v end, cY, "px"); cY = cY + 46
-Dropdown(CombatScroll, "Hit Part", {"Head","Torso","HumanoidRootPart"}, "Head", function(v) silentAimPart = v end, cY); cY = cY + 54
 Checkbox(CombatScroll, "Team Check", false, function(v) silentAimTeamCheck = v end, cY); cY = cY + 26
 Checkbox(CombatScroll, "Visible Check", false, function(v) silentAimVisCheck = v end, cY); cY = cY + 26
+Slider(CombatScroll, "Hit Chance", 0, 100, 95, function(v) silentAimHitChance = v end, cY, "%"); cY = cY + 46
+Slider(CombatScroll, "FOV Radius", 1, 500, 200, function(v) silentAimFov = v end, cY, "px"); cY = cY + 46
+Dropdown(CombatScroll, "Hit Part", {"Head","Torso","HumanoidRootPart","Random"}, "Head", function(v) silentAimPart = v end, cY); cY = cY + 54
 KeybindRow(CombatScroll, "Aim Keybind", keybinds.SilentAim, function(k) keybinds.SilentAim = k end, cY); cY = cY + 26
 
 cY = cY + 6
 cY = cY + section(CombatScroll, "FOV VISUAL", cY)
-Checkbox(CombatScroll, "Show FOV Circle", true, function(v) silentAimDrawFov = v end, cY); cY = cY + 26
-ColorRow(CombatScroll, "FOV Circle Color", function() return silentAimFovColor end, function(c) silentAimFovColor = c end, cY); cY = cY + 26
-Checkbox(CombatScroll, "Show Snapline", true, function(v) silentAimSnapline = v end, cY); cY = cY + 26
+Checkbox(CombatScroll, "Show FOV Circle", true, function(v) silentAimShowFov = v end, cY); cY = cY + 26
+ColorRow(CombatScroll, "FOV Color", function() return silentAimFovColor end, function(c) silentAimFovColor = c end, cY); cY = cY + 26
+Checkbox(CombatScroll, "Show Snapline", false, function(v) silentAimSnapline = v end, cY); cY = cY + 26
 ColorRow(CombatScroll, "Snapline Color", function() return silentAimSnaplineColor end, function(c) silentAimSnaplineColor = c end, cY); cY = cY + 26
 
 cY = cY + 6
-cY = cY + section(CombatScroll, "BULLET EFFECTS", cY)
-Checkbox(CombatScroll, "Bullet Tracer", true, function(v) bulletTracerEnabled = v end, cY); cY = cY + 26
-ColorRow(CombatScroll, "Tracer Color", function() return bulletTracerColor end, function(c) bulletTracerColor = c end, cY); cY = cY + 26
-Slider(CombatScroll, "Tracer Lifetime", 1, 50, 15, function(v) bulletTracerLife = v/100 end, cY, "cs"); cY = cY + 46
-Checkbox(CombatScroll, "Bullet Marker", true, function(v) bulletMarkerEnabled = v end, cY); cY = cY + 26
-ColorRow(CombatScroll, "Marker Color", function() return bulletMarkerColor end, function(c) bulletMarkerColor = c end, cY); cY = cY + 26
-Slider(CombatScroll, "Marker Size", 2, 30, 8, function(v) bulletMarkerSize = v end, cY, "px"); cY = cY + 46
+cY = cY + section(CombatScroll, "BULLET TRACER", cY)
+Checkbox(CombatScroll, "Enable Tracer", false, function(v) bulletTracerEnabled = v end, cY); cY = cY + 26
+Slider(CombatScroll, "Lifetime", 1, 10, 3, function(v) bulletTracerLife = v end, cY, "s"); cY = cY + 46
+Dropdown(CombatScroll, "Type", {"Red Laser","Neon Linia Bruh"}, "Red Laser", function(v) bulletTracerType = v end, cY); cY = cY + 54
 
 cY = cY + 6
 cY = cY + section(CombatScroll, "HIT SOUND", cY)
-Checkbox(CombatScroll, "Enable Hit Sound", false, function(v) hitSoundEnabled = v end, cY); cY = cY + 26
+Checkbox(CombatScroll, "Enable Hit Sound", false, function(v)
+    hitSoundEnabled = v
+    if v and not hitSoundObj then
+        hitSoundObj = Instance.new("Sound")
+        hitSoundObj.SoundId = "rbxassetid://" .. hitSoundId
+        hitSoundObj.Volume = hitSoundVolume
+        hitSoundObj.Parent = SoundService
+    end
+end, cY); cY = cY + 26
+Slider(CombatScroll, "Volume", 0, 10, 1, function(v)
+    hitSoundVolume = v
+    if hitSoundObj then hitSoundObj.Volume = v end
+end, cY); cY = cY + 46
 local soundInput = Instance.new("Frame")
 soundInput.Position = UDim2.fromOffset(10,cY)
 soundInput.Size = UDim2.new(1,-20,0,48)
@@ -838,19 +872,19 @@ sBox.TextSize = 11
 sBox.ClearTextOnFocus = false
 sBox.Parent = soundInput
 Stroke(sBox,1)
-sBox.FocusLost:Connect(function() hitSoundId = sBox.Text end)
+sBox.FocusLost:Connect(function()
+    hitSoundId = sBox.Text
+    if hitSoundObj then hitSoundObj.SoundId = "rbxassetid://" .. hitSoundId end
+end)
 cY = cY + 50
-Slider(CombatScroll, "Volume", 0, 3, 1, function(v) hitSoundVolume = v end, cY); cY = cY + 46
 
 cY = cY + 6
-cY = cY + section(CombatScroll, "RAPID FIRE (rateofFire)", cY)
+cY = cY + section(CombatScroll, "RAPID FIRE", cY)
 Checkbox(CombatScroll, "Enable Rapid Fire", false, function(v)
     rapidFireEnabled = v
-    if v then ApplyRapidFire() end
 end, cY); cY = cY + 26
 Slider(CombatScroll, "Rate Value (x100k)", 1, 100, 100, function(v)
     rapidFireValue = v * 100000
-    if rapidFireEnabled then ApplyRapidFire() end
 end, cY); cY = cY + 46
 
 --========================================================--
@@ -929,9 +963,11 @@ Checkbox(VisScroll, "Fullbright", false, function(v)
         Lighting.Brightness = 3
         Lighting.ClockTime = 14
         Lighting.GlobalShadows = false
+        Lighting.FogEnd = 1e9
     else
         Lighting.Brightness = 1
         Lighting.GlobalShadows = true
+        Lighting.FogEnd = 100000
     end
 end, vY); vY = vY + 26
 
@@ -965,7 +1001,15 @@ Slider(MiscScroll, "Jump Power", 50, 500, 100, function(v)
         if h then h.UseJumpPower = true; h.JumpPower = v end
     end
 end, mY); mY = mY + 46
-Checkbox(MiscScroll, "No Clip", false, function(v) noClipEnabled = v end, mY); mY = mY + 26
+Checkbox(MiscScroll, "No Clip", false, function(v)
+    noClipEnabled = v
+    local char = LP.Character
+    if char then
+        for _,p in ipairs(char:GetDescendants()) do
+            if p:IsA("BasePart") then p.CanCollide = not v end
+        end
+    end
+end, mY); mY = mY + 26
 Checkbox(MiscScroll, "Bunny Hop", false, function(v) bhopEnabled = v end, mY); mY = mY + 26
 
 mY = mY + 6
@@ -1014,6 +1058,54 @@ ColorRow(SetScroll, "Border Color", function() return BORDER_COLOR end, function
 ColorRow(SetScroll, "Accent Color", function() return ACCENT_COLOR end, function(c) SetAccentColor(c) end, sY); sY = sY + 26
 
 sY = sY + 6
+sY = sY + section(SetScroll, "WHITELIST", sY)
+Checkbox(SetScroll, "Enable Whitelist", false, function(v) whitelistEnabled = v; RenderWhitelist() end, sY); sY = sY + 26
+
+local whitelistFrame = Instance.new("ScrollingFrame")
+whitelistFrame.Position = UDim2.fromOffset(10, sY)
+whitelistFrame.Size = UDim2.new(1,-20,0,140)
+whitelistFrame.BackgroundColor3 = PANEL
+whitelistFrame.BorderSizePixel = 0
+whitelistFrame.ScrollBarThickness = 3
+whitelistFrame.ScrollBarImageColor3 = ACCENT_COLOR
+whitelistFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+whitelistFrame.CanvasSize = UDim2.new()
+whitelistFrame.Parent = SetScroll
+Stroke(whitelistFrame,1)
+Instance.new("UIListLayout",whitelistFrame).Padding = UDim.new(0,3)
+sY = sY + 146
+
+function RenderWhitelist()
+    for _,c in ipairs(whitelistFrame:GetChildren()) do
+        if c:IsA("TextButton") then c:Destroy() end
+    end
+    for _,p in ipairs(Players:GetPlayers()) do
+        if p ~= LP then
+            local b = Instance.new("TextButton")
+            b.Size = UDim2.new(1,-6,0,22)
+            b.BackgroundColor3 = whitelist[p.Name] and Color3.fromRGB(90,30,160) or Color3.fromRGB(20,20,20)
+            b.BorderSizePixel = 0
+            b.Text = p.Name .. (whitelist[p.Name] and "  ✓" or "")
+            b.TextColor3 = WHITE
+            b.Font = Enum.Font.Code
+            b.TextSize = 11
+            b.TextXAlignment = Enum.TextXAlignment.Left
+            b.AutoButtonColor = false
+            b.Parent = whitelistFrame
+            Instance.new("UIPadding",b).PaddingLeft = UDim.new(0,6)
+            b.MouseButton1Click:Connect(function()
+                whitelist[p.Name] = not whitelist[p.Name] or nil
+                RenderWhitelist()
+            end)
+        end
+    end
+end
+
+Players.PlayerAdded:Connect(RenderWhitelist)
+Players.PlayerRemoving:Connect(RenderWhitelist)
+RenderWhitelist()
+
+sY = sY + 6
 sY = sY + section(SetScroll, "CONFIG", sY)
 
 local cfgPath = "ProjectAstra_Config.json"
@@ -1025,14 +1117,14 @@ local function CollectConfig()
         silentAimPart = silentAimPart,
         silentAimTeamCheck = silentAimTeamCheck,
         silentAimVisCheck = silentAimVisCheck,
-        silentAimDrawFov = silentAimDrawFov,
-        silentAimFovColor = {silentAimFovColor.R,silentAimFovColor.G,silentAimFovColor.B},
+        silentAimHitChance = silentAimHitChance,
+        silentAimShowFov = silentAimShowFov,
         silentAimSnapline = silentAimSnapline,
+        silentAimFovColor = {silentAimFovColor.R,silentAimFovColor.G,silentAimFovColor.B},
         silentAimSnaplineColor = {silentAimSnaplineColor.R,silentAimSnaplineColor.G,silentAimSnaplineColor.B},
         bulletTracerEnabled = bulletTracerEnabled,
-        bulletTracerColor = {bulletTracerColor.R,bulletTracerColor.G,bulletTracerColor.B},
-        bulletMarkerEnabled = bulletMarkerEnabled,
-        bulletMarkerColor = {bulletMarkerColor.R,bulletMarkerColor.G,bulletMarkerColor.B},
+        bulletTracerType = bulletTracerType,
+        bulletTracerLife = bulletTracerLife,
         hitSoundEnabled = hitSoundEnabled,
         hitSoundId = hitSoundId,
         hitSoundVolume = hitSoundVolume,
@@ -1078,14 +1170,14 @@ local function ApplyConfig(cfg)
     silentAimPart = cfg.silentAimPart or silentAimPart
     silentAimTeamCheck = cfg.silentAimTeamCheck or silentAimTeamCheck
     silentAimVisCheck = cfg.silentAimVisCheck or silentAimVisCheck
-    silentAimDrawFov = cfg.silentAimDrawFov ~= nil and cfg.silentAimDrawFov or silentAimDrawFov
-    if cfg.silentAimFovColor then silentAimFovColor = Color3.new(unpack(cfg.silentAimFovColor)) end
+    silentAimHitChance = cfg.silentAimHitChance or silentAimHitChance
+    silentAimShowFov = cfg.silentAimShowFov ~= nil and cfg.silentAimShowFov or silentAimShowFov
     silentAimSnapline = cfg.silentAimSnapline ~= nil and cfg.silentAimSnapline or silentAimSnapline
+    if cfg.silentAimFovColor then silentAimFovColor = Color3.new(unpack(cfg.silentAimFovColor)) end
     if cfg.silentAimSnaplineColor then silentAimSnaplineColor = Color3.new(unpack(cfg.silentAimSnaplineColor)) end
     bulletTracerEnabled = cfg.bulletTracerEnabled ~= nil and cfg.bulletTracerEnabled or bulletTracerEnabled
-    if cfg.bulletTracerColor then bulletTracerColor = Color3.new(unpack(cfg.bulletTracerColor)) end
-    bulletMarkerEnabled = cfg.bulletMarkerEnabled ~= nil and cfg.bulletMarkerEnabled or bulletMarkerEnabled
-    if cfg.bulletMarkerColor then bulletMarkerColor = Color3.new(unpack(cfg.bulletMarkerColor)) end
+    bulletTracerType = cfg.bulletTracerType or bulletTracerType
+    bulletTracerLife = cfg.bulletTracerLife or bulletTracerLife
     hitSoundEnabled = cfg.hitSoundEnabled or hitSoundEnabled
     hitSoundId = cfg.hitSoundId or hitSoundId
     hitSoundVolume = cfg.hitSoundVolume or hitSoundVolume
@@ -1124,63 +1216,29 @@ local function ApplyConfig(cfg)
     if cfg.gunChamsColor then gunChamsColor = Color3.new(unpack(cfg.gunChamsColor)) end
     if cfg.borderColor then SetBorderColor(Color3.new(unpack(cfg.borderColor))) end
     if cfg.accentColor then SetAccentColor(Color3.new(unpack(cfg.accentColor))) end
-    if fullbrightEnabled then
-        Lighting.Brightness = 3; Lighting.ClockTime = 14; Lighting.GlobalShadows = false
-    end
     if customHandsEnabled then SetupCustomHands() else RemoveCustomHands() end
     if skyboxEnabled then ApplySkybox(skyboxMode) end
 end
 
-local saveBtn = Instance.new("TextButton")
-saveBtn.Position = UDim2.fromOffset(10,sY)
-saveBtn.Size = UDim2.new(1,-20,0,28)
-saveBtn.BackgroundColor3 = ACCENT_COLOR
-saveBtn.BorderSizePixel = 0
-saveBtn.Text = "Save Config (JSON)"
-saveBtn.TextColor3 = WHITE
-saveBtn.Font = Enum.Font.Code
-saveBtn.TextSize = 13
-saveBtn.AutoButtonColor = false
-saveBtn.Parent = SetScroll
-Stroke(saveBtn,1)
-RegisterAccent(saveBtn,"BackgroundColor3")
-saveBtn.MouseButton1Click:Connect(function()
+ButtonRow(SetScroll, "Save Config (JSON)", function()
     pcall(function()
         if writefile then
             writefile(cfgPath, HttpService:JSONEncode(CollectConfig()))
-            print("[Astra] Config saved.")
-        else
-            warn("[Astra] writefile not available")
+            Notify("Config saved")
         end
     end)
-end)
-sY = sY + 32
+end, sY); sY = sY + 30
 
-local loadBtn = Instance.new("TextButton")
-loadBtn.Position = UDim2.fromOffset(10,sY)
-loadBtn.Size = UDim2.new(1,-20,0,28)
-loadBtn.BackgroundColor3 = ACCENT_COLOR
-loadBtn.BorderSizePixel = 0
-loadBtn.Text = "Load Config (JSON)"
-loadBtn.TextColor3 = WHITE
-loadBtn.Font = Enum.Font.Code
-loadBtn.TextSize = 13
-loadBtn.AutoButtonColor = false
-loadBtn.Parent = SetScroll
-Stroke(loadBtn,1)
-RegisterAccent(loadBtn,"BackgroundColor3")
-loadBtn.MouseButton1Click:Connect(function()
+ButtonRow(SetScroll, "Load Config (JSON)", function()
     pcall(function()
         if isfile and isfile(cfgPath) then
-            local cfg = HttpService:JSONDecode(readfile(cfgPath))
-            ApplyConfig(cfg)
-            print("[Astra] Config loaded.")
+            ApplyConfig(HttpService:JSONDecode(readfile(cfgPath)))
+            Notify("Config loaded")
         else
-            warn("[Astra] No config file.")
+            Notify("No config file")
         end
     end)
-end)
-sY = sY + 32
+end, sY); sY = sY + 30
 
 --========================================================--
 -- TAB SWITCHING
@@ -1342,7 +1400,283 @@ if Camera then
 end
 
 --========================================================--
--- RAPID FIRE (по атрибуту rateofFire — не ломает респавн)
+-- WHITELIST HELPERS
+--========================================================--
+
+local function IsWhitelisted(plr)
+    if not whitelistEnabled then return false end
+    return whitelist[plr.Name] == true
+end
+
+--========================================================--
+-- FOV CIRCLE (через Frame)
+--========================================================--
+
+local FOVFrameGui = Instance.new("ScreenGui")
+FOVFrameGui.Name = "AstraFOV"
+FOVFrameGui.ResetOnSpawn = false
+FOVFrameGui.IgnoreGuiInset = true
+FOVFrameGui.Parent = CoreGui
+
+local FOVFrame = Instance.new("Frame")
+FOVFrame.BackgroundTransparency = 1
+FOVFrame.BorderSizePixel = 0
+FOVFrame.Visible = false
+FOVFrame.ZIndex = 999
+FOVFrame.Parent = FOVFrameGui
+
+local FOVStroke = Instance.new("UIStroke", FOVFrame)
+FOVStroke.Thickness = 1.5
+FOVStroke.Transparency = 0.3
+
+local FOVCorner = Instance.new("UICorner", FOVFrame)
+FOVCorner.CornerRadius = UDim.new(1,0)
+
+--========================================================--
+-- SNAPLINE (Drawing)
+--========================================================--
+
+local snapLine
+if Drawing then
+    snapLine = Drawing.new("Line")
+    snapLine.Visible = false
+    snapLine.Thickness = 2
+    snapLine.Transparency = 0.8
+    snapLine.Color = silentAimSnaplineColor
+end
+
+--========================================================--
+-- SILENT AIM target finder
+--========================================================--
+
+local function getSilentTarget()
+    local best, bd = nil, silentAimFov
+    local vp = Camera.ViewportSize
+    local center = Vector2.new(vp.X/2, vp.Y/2)
+
+    for _,p in ipairs(Players:GetPlayers()) do
+        if p == LP then continue end
+        if silentAimTeamCheck and p.Team == LP.Team then continue end
+        if IsWhitelisted(p) then continue end
+        local char = p.Character
+        if not char then continue end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health <= 0 then continue end
+
+        local partName = silentAimPart
+        if partName == "Random" then
+            local opts = {"Head","Torso","HumanoidRootPart"}
+            partName = opts[math.random(1, #opts)]
+        end
+        local part = char:FindFirstChild(partName) or char:FindFirstChild("Head")
+        if not part then continue end
+
+        if silentAimVisCheck then
+            local rp = RaycastParams.new()
+            rp.FilterDescendantsInstances = {LP.Character, Camera}
+            rp.FilterType = Enum.RaycastFilterType.Exclude
+            local ray = workspace:Raycast(Camera.CFrame.Position, (part.Position - Camera.CFrame.Position).Unit * 1000, rp)
+            if not ray or not ray.Instance or not ray.Instance:IsDescendantOf(char) then continue end
+        end
+
+        local pos, onS = Camera:WorldToViewportPoint(part.Position)
+        if not onS then continue end
+        local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+        if dist < bd then bd = dist; best = part end
+    end
+    return best
+end
+
+--========================================================--
+-- BULLET TRACER (Beam как в EpsteinHub V2)
+--========================================================--
+
+local function CreateTracer(from, to)
+    if not bulletTracerEnabled then return end
+    if (to - from).Magnitude < 1 then return end
+
+    local holder = Instance.new("Part")
+    holder.Name = "AstraTracer"
+    holder.Size = Vector3.new(0.05,0.05,0.05)
+    holder.Transparency = 1
+    holder.Anchored = true
+    holder.CanCollide = false
+    holder.CanTouch = false
+    holder.CanQuery = false
+    holder.Position = from
+    holder.Parent = workspace
+
+    local a0 = Instance.new("Attachment", holder)
+    a0.WorldPosition = from
+    local a1 = Instance.new("Attachment", holder)
+    a1.WorldPosition = to
+
+    local beam = Instance.new("Beam")
+    beam.Attachment0 = a0
+    beam.Attachment1 = a1
+    beam.FaceCamera = true
+    beam.LightEmission = 1
+    beam.LightInfluence = 0
+
+    if bulletTracerType == "Red Laser" then
+        beam.Texture = "rbxassetid://6060542021"
+        beam.TextureMode = Enum.TextureMode.Wrap
+        beam.TextureLength = 3
+        beam.Width0 = 1.2
+        beam.Width1 = 1.2
+        beam.Color = ColorSequence.new(Color3.fromRGB(255,10,10))
+    else
+        beam.Texture = "rbxassetid://10259604258"
+        beam.TextureMode = Enum.TextureMode.Wrap
+        beam.TextureLength = 2
+        beam.Width0 = 0.4
+        beam.Width1 = 0.4
+        beam.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(255,255,255)),
+            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(150,50,220)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(255,255,255)),
+        })
+    end
+
+    beam.Parent = holder
+    Debris:AddItem(holder, bulletTracerLife)
+end
+
+--========================================================--
+-- HIT SOUND (hookmetamethod FireServer — как в EpsteinHub V2)
+--========================================================--
+
+if hookmetamethod then
+    local oldNamecall
+    oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+        local method = getnamecallmethod()
+        if method == "FireServer" or method == "InvokeServer" then
+            if self and self.Name and (self.Name == "BulletHit" or self.Name == "HitShot") then
+                if hitSoundEnabled and hitSoundObj then
+                    task.spawn(function()
+                        pcall(function() hitSoundObj:Play() end)
+                    end)
+                end
+            end
+        end
+        return oldNamecall(self, ...)
+    end)
+end
+
+--========================================================--
+-- SILENT AIM via hookfunction(castRays)
+--========================================================--
+
+local castRaysFunc = nil
+do
+    local ok, blaster = pcall(function() return ReplicatedStorage:FindFirstChild("Blaster") end)
+    if ok and blaster then
+        local util = blaster:FindFirstChild("Utility")
+        if util then
+            local castRaysMod = util:FindFirstChild("castRays")
+            if castRaysMod then
+                local ok2, func = pcall(require, castRaysMod)
+                if ok2 and type(func) == "function" then
+                    castRaysFunc = func
+                    print("[Astra] castRays найден — silent aim готов")
+                end
+            end
+        end
+    end
+end
+
+if castRaysFunc and hookfunction then
+    local original
+    original = hookfunction(castRaysFunc, function(plr, origin, dirs, ...)
+        if plr == LP and silentAimEnabled and type(dirs) == "table" then
+            for k in pairs(dirs) do
+                dirs[k] = Vector3.new(0,0,-1)
+            end
+        end
+
+        local result = original(plr, origin, dirs, ...)
+
+        if plr == LP then
+            local target = getSilentTarget()
+            if target then
+                if bulletTracerEnabled then
+                    CreateTracer(origin, target.Position)
+                end
+
+                if silentAimHitChance/100 > math.random() then
+                    if type(result) == "table" then
+                        if result.position then
+                            result.position = target.Position
+                            result.instance = target
+                            if target.Parent then
+                                result.taggedHumanoid = target.Parent:FindFirstChildOfClass("Humanoid")
+                            end
+                        elseif result[1] and type(result[1]) == "table" then
+                            result[1].position = target.Position
+                            result[1].instance = target
+                            if target.Parent then
+                                result[1].taggedHumanoid = target.Parent:FindFirstChildOfClass("Humanoid")
+                            end
+                        end
+                    end
+                    return result
+                end
+            else
+                if bulletTracerEnabled and type(result) == "table" then
+                    local pos
+                    if result.position then pos = result.position
+                    elseif result[1] and result[1].position then pos = result[1].position end
+                    if pos then CreateTracer(origin, pos) end
+                end
+            end
+        end
+
+        return result
+    end)
+    print("[Astra] Silent aim hooked")
+else
+    warn("[Astra] castRays не найден или hookfunction недоступен — silent aim без попадания")
+end
+
+--========================================================--
+-- SNAPLINE + FOV render
+--========================================================--
+
+RS.RenderStepped:Connect(function()
+    -- FOV circle
+    local vp = Camera.ViewportSize
+    local cx = vp.X/2
+    local cy = vp.Y/2
+    FOVFrame.Position = UDim2.fromOffset(cx - silentAimFov, cy - silentAimFov)
+    FOVFrame.Size = UDim2.fromOffset(silentAimFov*2, silentAimFov*2)
+    FOVFrame.Visible = silentAimShowFov and silentAimEnabled
+    FOVStroke.Color = silentAimFovColor
+
+    -- Snapline
+    if snapLine then
+        if not silentAimEnabled or not silentAimSnapline then
+            snapLine.Visible = false
+        else
+            local t = getSilentTarget()
+            if not t then
+                snapLine.Visible = false
+            else
+                local pos, onS = Camera:WorldToViewportPoint(t.Position)
+                if not onS then
+                    snapLine.Visible = false
+                else
+                    snapLine.From = Vector2.new(cx, cy)
+                    snapLine.To = Vector2.new(pos.X, pos.Y)
+                    snapLine.Color = silentAimSnaplineColor
+                    snapLine.Visible = true
+                end
+            end
+        end
+    end
+end)
+
+--========================================================--
+-- RAPID FIRE (атрибут rateofFire)
 --========================================================--
 
 local function processToolForRapidFire(tool)
@@ -1357,45 +1691,26 @@ local function processToolForRapidFire(tool)
     end
 end
 
-function ApplyRapidFire()
-    if not rapidFireEnabled then return end
-    local char = LP.Character
-    if char then
-        for _, item in ipairs(char:GetChildren()) do
-            processToolForRapidFire(item)
-        end
+local function hookCharForRapid(char)
+    if not char then return end
+    for _,item in ipairs(char:GetChildren()) do
+        processToolForRapidFire(item)
     end
-end
-
-LP.CharacterAdded:Connect(function(char)
-    task.wait(0.1)
     char.ChildAdded:Connect(function(child)
         task.wait(0.05)
-        if rapidFireEnabled then
-            processToolForRapidFire(child)
-        end
-    end)
-end)
-
-if LP.Character then
-    LP.Character.ChildAdded:Connect(function(child)
-        task.wait(0.05)
-        if rapidFireEnabled then
-            processToolForRapidFire(child)
-        end
+        processToolForRapidFire(child)
     end)
 end
 
--- Отдельный loop — если rapid включен, держим значение обновлённым
+if LP.Character then hookCharForRapid(LP.Character) end
+LP.CharacterAdded:Connect(hookCharForRapid)
+
 task.spawn(function()
     while true do
         task.wait(0.5)
-        if rapidFireEnabled then
-            local char = LP.Character
-            if char then
-                for _, item in ipairs(char:GetChildren()) do
-                    processToolForRapidFire(item)
-                end
+        if rapidFireEnabled and LP.Character then
+            for _,item in ipairs(LP.Character:GetChildren()) do
+                processToolForRapidFire(item)
             end
         end
     end
@@ -1536,224 +1851,6 @@ function ApplySkybox(name)
 end
 
 --========================================================--
--- DAMAGE TRACKING
---========================================================--
-
-local damageEvents = {}
-local DAMAGE_WINDOW = 0.35
-
-local function watchHumanoid(plr)
-    local function hook(char)
-        local hum = char:WaitForChild("Humanoid", 5)
-        if not hum then return end
-        local last = hum.Health
-        hum.HealthChanged:Connect(function(h)
-            if h < last then
-                damageEvents[plr] = tick()
-            end
-            last = h
-        end)
-    end
-    if plr.Character then hook(plr.Character) end
-    plr.CharacterAdded:Connect(hook)
-end
-
-for _,p in ipairs(Players:GetPlayers()) do
-    if p ~= LP then watchHumanoid(p) end
-end
-Players.PlayerAdded:Connect(function(p)
-    if p ~= LP then watchHumanoid(p) end
-end)
-
-local function wasDamagedRecently(plr)
-    if not plr then return false end
-    local t = damageEvents[plr]
-    return t and (tick() - t) <= DAMAGE_WINDOW
-end
-
---========================================================--
--- BULLET EFFECTS
---========================================================--
-
-local function CreateLaserTracer(from, to)
-    if not bulletTracerEnabled then return end
-    local dist = (to - from).Magnitude
-    if dist < 0.1 then return end
-    local part = Instance.new("Part")
-    part.Anchored = true
-    part.CanCollide = false
-    part.Material = Enum.Material.Neon
-    part.Color = bulletTracerColor
-    part.Size = Vector3.new(0.15, 0.15, dist)
-    part.CFrame = CFrame.new(from, to) * CFrame.new(0,0,-dist/2)
-    part.Parent = workspace
-    task.delay(bulletTracerLife, function()
-        if part and part.Parent then part:Destroy() end
-    end)
-end
-
-local function CreateHitmarker(pos3D)
-    if not bulletMarkerEnabled then return end
-    local vp, onScreen = Camera:WorldToViewportPoint(pos3D)
-    if not onScreen then return end
-
-    local marker = Instance.new("Frame")
-    marker.AnchorPoint = Vector2.new(0.5,0.5)
-    marker.Position = UDim2.fromOffset(vp.X, vp.Y)
-    marker.Size = UDim2.fromOffset(bulletMarkerSize*2, bulletMarkerSize*2)
-    marker.BackgroundTransparency = 1
-    marker.Parent = ScreenGui
-
-    for i=1,4 do
-        local line = Instance.new("Frame")
-        line.AnchorPoint = Vector2.new(0.5,0.5)
-        line.Size = UDim2.fromOffset(2, bulletMarkerSize)
-        line.BackgroundColor3 = bulletMarkerColor
-        line.BorderSizePixel = 0
-        local offset = 8
-        if i == 1 then line.Position = UDim2.new(0.5,0,0.5,-offset)
-        elseif i == 2 then line.Position = UDim2.new(0.5,offset,0.5,0); line.Rotation = 90
-        elseif i == 3 then line.Position = UDim2.new(0.5,0,0.5,offset)
-        elseif i == 4 then line.Position = UDim2.new(0.5,-offset,0.5,0); line.Rotation = 90
-        end
-        line.Parent = marker
-    end
-
-    task.delay(0.35, function()
-        if marker and marker.Parent then marker:Destroy() end
-    end)
-end
-
-local function PlayHitSound()
-    if not hitSoundEnabled then return end
-    local s = Instance.new("Sound")
-    s.SoundId = hitSoundId
-    s.Volume = hitSoundVolume
-    s.Parent = LP:FindFirstChild("PlayerGui") or LP
-    s:Play()
-    task.delay(2, function() if s then s:Destroy() end end)
-end
-
---========================================================--
--- SILENT AIM
---========================================================--
-
-local function getSilentTarget()
-    local best, bd = nil, silentAimFov
-    local vp = Camera.ViewportSize
-    local center = Vector2.new(vp.X/2, vp.Y/2)
-
-    for _,p in ipairs(Players:GetPlayers()) do
-        if p == LP then continue end
-        if silentAimTeamCheck and p.Team == LP.Team then continue end
-        local char = p.Character
-        if not char then continue end
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if not hum or hum.Health <= 0 then continue end
-        local part = char:FindFirstChild(silentAimPart) or char:FindFirstChild("Head")
-        if not part then continue end
-        if silentAimVisCheck then
-            local rp = RaycastParams.new()
-            rp.FilterDescendantsInstances = {LP.Character, Camera}
-            rp.FilterType = Enum.RaycastFilterType.Exclude
-            local ray = workspace:Raycast(Camera.CFrame.Position, (part.Position - Camera.CFrame.Position).Unit * 1000, rp)
-            if not ray or not ray.Instance or not ray.Instance:IsDescendantOf(char) then continue end
-        end
-        local pos, onS = Camera:WorldToViewportPoint(part.Position)
-        if not onS then continue end
-        local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
-        if dist < bd then bd = dist; best = part end
-    end
-    return best
-end
-
--- hookmetamethod для silent aim
-local mt = getrawmetatable(game)
-if mt then
-    local oldNamecall = mt.__namecall
-    setreadonly(mt, false)
-    mt.__namecall = newcclosure(function(self, ...)
-        local method = getnamecallmethod()
-        local args = {...}
-
-        if silentAimEnabled and (method == "FireServer" or method == "InvokeServer") then
-            local target = getSilentTarget()
-            if target then
-                for i,v in ipairs(args) do
-                    if typeof(v) == "Vector3" then
-                        args[i] = target.Position
-                    elseif typeof(v) == "CFrame" then
-                        args[i] = CFrame.new(target.Position)
-                    end
-                end
-            end
-        end
-
-        return oldNamecall(self, unpack(args))
-    end)
-    setreadonly(mt, true)
-end
-
---========================================================--
--- FOV circle + snapline rendering
---========================================================--
-
-RS.RenderStepped:Connect(function()
-    if not (fovCircle and fovSnapline) then return end
-
-    local vp = Camera.ViewportSize
-    local center = Vector2.new(vp.X/2, vp.Y/2)
-
-    if silentAimDrawFov and silentAimEnabled then
-        fovCircle.Position = center
-        fovCircle.Radius = silentAimFov
-        fovCircle.Color = silentAimFovColor
-        fovCircle.Visible = true
-    else
-        fovCircle.Visible = false
-    end
-
-    if silentAimSnapline and silentAimEnabled then
-        local t = getSilentTarget()
-        if t then
-            local screenPos, onS = Camera:WorldToViewportPoint(t.Position)
-            if onS then
-                fovSnapline.From = Vector2.new(vp.X/2, vp.Y)
-                fovSnapline.To = Vector2.new(screenPos.X, screenPos.Y)
-                fovSnapline.Color = silentAimSnaplineColor
-                fovSnapline.Visible = true
-            else
-                fovSnapline.Visible = false
-            end
-        else
-            fovSnapline.Visible = false
-        end
-    else
-        fovSnapline.Visible = false
-    end
-end)
-
---========================================================--
--- HIT EFFECTS
---========================================================--
-
-UIS.InputBegan:Connect(function(i, gpe)
-    if gpe then return end
-    if i.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-
-    task.wait(0.02)
-    local t = silentAimEnabled and getSilentTarget() or nil
-    if t then
-        CreateLaserTracer(Camera.CFrame.Position, t.Position)
-        local plr = Players:GetPlayerFromCharacter(t.Parent)
-        if plr and wasDamagedRecently(plr) then
-            CreateHitmarker(t.Position)
-            PlayHitSound()
-        end
-    end
-end)
-
---========================================================--
 -- ESP
 --========================================================--
 
@@ -1798,7 +1895,7 @@ end
 RS.RenderStepped:Connect(function()
     for player, o in pairs(espCache) do
         local char = player.Character
-        local visible = espEnabled
+        local visible = espEnabled and not IsWhitelisted(player)
 
         if visible and char then
             local root = char:FindFirstChild("HumanoidRootPart")
@@ -1872,7 +1969,7 @@ RS.RenderStepped:Connect(function()
 end)
 
 --========================================================--
--- MAIN HEARTBEAT LOOP
+-- MAIN HEARTBEAT
 --========================================================--
 
 local wasInAirBhop = false
@@ -1990,8 +2087,7 @@ function DoAirWalk()
     airWalkBusy = true
 
     local targetY = root.Position.Y + airWalkHeight
-    local startCF = CFrame.new(root.Position.X, targetY, root.Position.Z) * root.CFrame.Rotation
-    root.CFrame = startCF
+    root.CFrame = CFrame.new(root.Position.X, targetY, root.Position.Z) * root.CFrame.Rotation
 
     local bodyPos = Instance.new("BodyPosition")
     bodyPos.MaxForce = Vector3.new(0, math.huge, 0)
@@ -2012,24 +2108,13 @@ function DoAirWalk()
     if bodyGyro then bodyGyro:Destroy() end
 
     local currentPos = root.Position
-    local groundPos = Vector3.new(currentPos.X, currentPos.Y - airWalkHeight, currentPos.Z)
-    root.CFrame = CFrame.new(groundPos) * root.CFrame.Rotation
+    root.CFrame = CFrame.new(currentPos.X, currentPos.Y - airWalkHeight, currentPos.Z) * root.CFrame.Rotation
     root.Velocity = Vector3.zero
     root.AssemblyLinearVelocity = Vector3.zero
     hum:ChangeState(Enum.HumanoidStateType.GettingUp)
 
     airWalkBusy = false
 end
-
-UIS.InputBegan:Connect(function(inp, gpe)
-    if gpe then return end
-    if inp.KeyCode == airWalkKey then
-        DoAirWalk()
-    end
-    if inp.KeyCode == tpKey then
-        DoTeleport()
-    end
-end)
 
 --========================================================--
 -- TELEPORT
@@ -2039,9 +2124,7 @@ function DoTeleport()
     local char = LP.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return end
-    local lookDir = Camera.CFrame.LookVector
-    local newPos = root.Position + lookDir * tpDistance
-    root.CFrame = CFrame.new(newPos) * root.CFrame.Rotation
+    root.CFrame = CFrame.new(root.Position + Camera.CFrame.LookVector * tpDistance) * root.CFrame.Rotation
     root.Velocity = Vector3.zero
 end
 
@@ -2052,6 +2135,34 @@ end
 local freezeBtnGui, freezeBtn
 local tpBtnGui, tpBtn
 local awBtnGui, awBtn
+
+local function SetupDraggable(btn, stateKey)
+    local dragging, dragInput, dragStart, startPos
+    btn.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = true; dragStart = i.Position; startPos = btn.Position
+            i.Changed:Connect(function()
+                if i.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    btn.InputChanged:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
+            dragInput = i
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if i == dragInput and dragging then
+            local d = i.Position - dragStart
+            btn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+        end
+    end)
+    btn.MouseButton1Click:Connect(function()
+        if not dragging and btn:GetAttribute("OnClick") then
+            -- handled per button
+        end
+    end)
+end
 
 function CreateFreezeButton()
     if freezeBtnGui then return end
@@ -2072,29 +2183,8 @@ function CreateFreezeButton()
     freezeBtn.TextSize = 16
     freezeBtn.ZIndex = 99999
     freezeBtn.Parent = freezeBtnGui
-
     Instance.new("UICorner",freezeBtn).CornerRadius = UDim.new(0,6)
-
-    local dragging, dragInput, dragStart, startPos
-    freezeBtn.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            dragging = true; dragStart = i.Position; startPos = freezeBtn.Position
-            i.Changed:Connect(function()
-                if i.UserInputState == Enum.UserInputState.End then dragging = false end
-            end)
-        end
-    end)
-    freezeBtn.InputChanged:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
-            dragInput = i
-        end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if i == dragInput and dragging then
-            local d = i.Position - dragStart
-            freezeBtn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
-        end
-    end)
+    SetupDraggable(freezeBtn)
 
     local pressed = false
     freezeBtn.MouseButton1Click:Connect(function()
@@ -2143,33 +2233,10 @@ function CreateTPButton()
     tpBtn.TextSize = 14
     tpBtn.ZIndex = 99999
     tpBtn.Parent = tpBtnGui
-
     Instance.new("UICorner",tpBtn).CornerRadius = UDim.new(0,5)
+    SetupDraggable(tpBtn)
 
-    local dragging, dragInput, dragStart, startPos
-    tpBtn.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            dragging = true; dragStart = i.Position; startPos = tpBtn.Position
-            i.Changed:Connect(function()
-                if i.UserInputState == Enum.UserInputState.End then dragging = false end
-            end)
-        end
-    end)
-    tpBtn.InputChanged:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
-            dragInput = i
-        end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if i == dragInput and dragging then
-            local d = i.Position - dragStart
-            tpBtn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
-        end
-    end)
-
-    tpBtn.MouseButton1Click:Connect(function()
-        DoTeleport()
-    end)
+    tpBtn.MouseButton1Click:Connect(function() DoTeleport() end)
 end
 
 function DestroyTPButton()
@@ -2195,38 +2262,25 @@ function CreateAirWalkButton()
     awBtn.TextSize = 13
     awBtn.ZIndex = 99999
     awBtn.Parent = awBtnGui
-
     Instance.new("UICorner",awBtn).CornerRadius = UDim.new(0,6)
+    SetupDraggable(awBtn)
 
-    local dragging, dragInput, dragStart, startPos
-    awBtn.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            dragging = true; dragStart = i.Position; startPos = awBtn.Position
-            i.Changed:Connect(function()
-                if i.UserInputState == Enum.UserInputState.End then dragging = false end
-            end)
-        end
-    end)
-    awBtn.InputChanged:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
-            dragInput = i
-        end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if i == dragInput and dragging then
-            local d = i.Position - dragStart
-            awBtn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
-        end
-    end)
-
-    awBtn.MouseButton1Click:Connect(function()
-        DoAirWalk()
-    end)
+    awBtn.MouseButton1Click:Connect(function() DoAirWalk() end)
 end
 
 function DestroyAirWalkButton()
     if awBtnGui then awBtnGui:Destroy(); awBtnGui = nil; awBtn = nil end
 end
+
+--========================================================--
+-- KEYBINDS
+--========================================================--
+
+UIS.InputBegan:Connect(function(inp, gpe)
+    if gpe then return end
+    if inp.KeyCode == airWalkKey then DoAirWalk() end
+    if inp.KeyCode == tpKey then DoTeleport() end
+end)
 
 --========================================================--
 -- INIT
@@ -2238,4 +2292,5 @@ LoadColor(ACCENT_COLOR)
 
 task.defer(function() CenterMain() end)
 
+Notify("Project Astra loaded")
 print("[Astra] Project Astra | t.me/epsteinhub loaded OK")
