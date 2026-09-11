@@ -1,4 +1,4 @@
--- Project Astra v5 | t.me/epsteinhub
+-- Project Astra v6 | t.me/epsteinhub
 
 local UIS = game:GetService("UserInputService")
 local RS = game:GetService("RunService")
@@ -40,7 +40,6 @@ for _, n in ipairs({"NyxonProject","ProjectAstra","AstraFOV","AstraFreezeUI","As
     end)
 end
 
--- COLORS
 local BG       = Color3.fromRGB(20,20,24)
 local PANEL    = Color3.fromRGB(24,24,29)
 local DROPBG   = Color3.fromRGB(22,22,27)
@@ -51,7 +50,6 @@ local GRAY     = Color3.fromRGB(145,145,150)
 local BORDER_COLOR = Color3.fromRGB(255,25,120)
 local ACCENT_COLOR = Color3.fromRGB(255,25,120)
 
--- STATE
 local silentAimEnabled   = false
 local silentAimFov       = 200
 local silentAimPart      = "Head"
@@ -153,7 +151,6 @@ local keybinds = {
     Freeze    = Enum.KeyCode.X,
 }
 
--- GUI ROOT
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "ProjectAstra"
 ScreenGui.ResetOnSpawn = false
@@ -164,7 +161,6 @@ if not ScreenGui.Parent then
     ScreenGui.Parent = LP:WaitForChild("PlayerGui")
 end
 
--- COLOR REGISTRY
 local BorderRegistry = {}
 local AccentRegistry = {}
 
@@ -195,7 +191,6 @@ local function SetAccentColor(color)
     end
 end
 
--- HELPERS
 local function Stroke(parent, thickness)
     local s = Instance.new("UIStroke")
     s.Color = BORDER_COLOR
@@ -233,7 +228,6 @@ local function Line(parent, y)
     return l
 end
 
--- COLOR PICKER
 local Picker = Instance.new("Frame")
 Picker.Size = UDim2.fromOffset(290,278)
 Picker.BackgroundColor3 = PANEL
@@ -418,7 +412,6 @@ ApplyButton.MouseButton1Click:Connect(function()
     Picker.Visible = false
 end)
 
--- COMPONENTS
 local function Checkbox(parent, label, default, callback, yPos)
     local container = Instance.new("Frame")
     container.Position = UDim2.fromOffset(10, yPos)
@@ -685,7 +678,6 @@ local function ButtonRow(parent, label, callback, yPos)
     return btn
 end
 
--- MAIN WINDOW
 local Main = Instance.new("Frame")
 Main.Name = "Main"
 Main.Size = UDim2.fromOffset(944,593)
@@ -715,7 +707,6 @@ TitleBar.BorderSizePixel = 0
 TitleBar.ClipsDescendants = true
 TitleBar.Parent = Main
 
--- РОЗОВЫЙ ГРАДИЕНТ В ШАПКЕ
 local TitleGradient = Instance.new("Frame")
 TitleGradient.Size = UDim2.new(1,0,1,0)
 TitleGradient.BackgroundColor3 = Color3.fromRGB(30,20,35)
@@ -727,7 +718,6 @@ TG.Color = ColorSequence.new({
     ColorSequenceKeypoint.new(0.5, Color3.fromRGB(120,30,120)),
     ColorSequenceKeypoint.new(1, Color3.fromRGB(40,15,60)),
 })
-TG.Rotation = 0
 
 local TitleLabel = Text(TitleBar, "✦ Project Astra  |  t.me/epsteinhub", UDim2.fromOffset(12,0), UDim2.new(1,-24,1,0), 14, WHITE)
 TitleLabel.ZIndex = 2
@@ -811,7 +801,6 @@ local function section(parent, title, y)
     return 26
 end
 
--- COMBAT
 local CombatScroll = Scrolls[1]
 local cY = 0
 
@@ -885,7 +874,6 @@ cY = cY + section(CombatScroll, "RAPID FIRE", cY)
 Checkbox(CombatScroll, "Enable Rapid Fire", false, function(v) rapidFireEnabled = v end, cY); cY = cY + 26
 Slider(CombatScroll, "Rate Value (x100k)", 1, 100, 100, function(v) rapidFireValue = v * 100000 end, cY); cY = cY + 46
 
--- VISUALS
 local VisScroll = Scrolls[2]
 local vY = 0
 
@@ -966,7 +954,6 @@ Checkbox(VisScroll, "Fullbright", false, function(v)
     end
 end, vY); vY = vY + 26
 
--- MISC
 local MiscScroll = Scrolls[3]
 local mY = 0
 
@@ -1042,7 +1029,6 @@ Checkbox(MiscScroll, "Show Air Walk Button (mobile)", false, function(v)
     if v then CreateAirWalkButton() else DestroyAirWalkButton() end
 end, mY); mY = mY + 26
 
--- SETTINGS
 local SetScroll = Scrolls[4]
 local sY = 0
 
@@ -1235,7 +1221,6 @@ ButtonRow(SetScroll, "Load Config (JSON)", function()
     end)
 end, sY); sY = sY + 30
 
--- TAB SWITCHING
 local function SelectTab(index)
     for i,page in ipairs(Pages) do
         page.Visible = (i == index)
@@ -1251,7 +1236,6 @@ for i,btn in ipairs(TabButtons) do
 end
 SelectTab(1)
 
--- SIDE PANEL
 local Side = Instance.new("Frame")
 Side.Size = UDim2.fromOffset(161,87)
 Side.Position = UDim2.fromOffset(68,185)
@@ -1307,7 +1291,6 @@ LockButton.MouseButton1Click:Connect(function()
     LockButton.Text = Locked and "Unlock UI" or "Lock UI"
 end)
 
--- DRAG / RESIZE
 local MainDragging, MainDragStart, MainStartPos = false,nil,nil
 TitleBar.InputBegan:Connect(function(i)
     if Locked then return end
@@ -1385,13 +1368,11 @@ if Camera then
     end)
 end
 
--- WHITELIST HELPER
 local function IsWhitelisted(plr)
     if not whitelistEnabled then return false end
     return whitelist[plr.Name] == true
 end
 
--- FOV CIRCLE
 local FOVFrameGui = Instance.new("ScreenGui")
 FOVFrameGui.Name = "AstraFOV"
 FOVFrameGui.ResetOnSpawn = false
@@ -1415,7 +1396,6 @@ FOVStroke.Transparency = 0.3
 local FOVCorner = Instance.new("UICorner", FOVFrame)
 FOVCorner.CornerRadius = UDim.new(1,0)
 
--- SNAPLINE
 local snapLine
 if Drawing then
     snapLine = Drawing.new("Line")
@@ -1425,7 +1405,6 @@ if Drawing then
     snapLine.Color = silentAimSnaplineColor
 end
 
--- SILENT AIM TARGET
 local function getSilentTarget()
     local best, bd = nil, silentAimFov
     local vp = Camera.ViewportSize
@@ -1466,7 +1445,6 @@ local function getSilentTarget()
     return best
 end
 
--- BULLET TRACER (EpsteinHub V2 версия)
 local function CreateTracer(from, to)
     if not bulletTracerEnabled then return end
     if (to - from).Magnitude < 1 then return end
@@ -1518,7 +1496,6 @@ local function CreateTracer(from, to)
     Debris:AddItem(holder, bulletTracerLife)
 end
 
--- DAMAGE TRACKING
 local function watchHumanoid(plr)
     local function hook(char)
         local hum = char:WaitForChild("Humanoid", 5)
@@ -1548,7 +1525,6 @@ local function wasDamagedRecently(plr)
     return t and (tick() - t) <= DAMAGE_WINDOW
 end
 
--- HIT MARKER (по твоему коду — с ActiveHitmarkers и RenderStepped)
 local function CreateHitmarker(worldPosition)
     if not hitMarkerEnabled then return end
     if not Drawing then return end
@@ -1616,7 +1592,6 @@ RS.RenderStepped:Connect(function()
     end
 end)
 
--- JUMP SHOT
 function ApplyJumpShot()
     if not getgc then return end
     pcall(function()
@@ -1647,20 +1622,23 @@ task.spawn(function()
     end
 end)
 
--- SILENT AIM через hookmetamethod (как в EpsteinHub V2)
-if hookmetamethod and getnamecallmethod then
+-- ЕДИНЫЙ hookmetamethod (silent aim + hit sound вместе)
+if hookmetamethod and getnamecallmethod and getrawmetatable then
     pcall(function()
         local mt = getrawmetatable(game)
-        if mt then
-            local oldNamecall = mt.__namecall
-            setreadonly(mt, false)
-            mt.__namecall = newcclosure(function(self, ...)
-                local method = getnamecallmethod()
-                local args = {...}
+        if not mt then return end
+        local oldNamecall = mt.__namecall
+        setreadonly(mt, false)
+        mt.__namecall = newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            local args = {...}
 
-                if silentAimEnabled and method == "FireServer" and self then
-                    local name = self.Name
-                    if name == "Bullet" or name == "Fire" or name == "Shoot" or name == "GunFire" then
+            if method == "FireServer" or method == "InvokeServer" then
+                if self and self.Name then
+                    local nm = self.Name
+
+                    -- Silent aim: подмена направления/позиции для стрельбы
+                    if silentAimEnabled and (nm == "Bullet" or nm == "Fire" or nm == "Shoot" or nm == "GunFire" or nm == "FireGun") then
                         local target = getSilentTarget()
                         if target then
                             for i, v in ipairs(args) do
@@ -1672,39 +1650,22 @@ if hookmetamethod and getnamecallmethod then
                             end
                         end
                     end
-                end
 
-                return oldNamecall(self, unpack(args))
-            end)
-            setreadonly(mt, true)
-        end
-    end)
-end
-
--- HIT SOUND через hookmetamethod
-if hookmetamethod and getnamecallmethod then
-    pcall(function()
-        local mt = getrawmetatable(game)
-        if mt then
-            local oldNamecall2 = mt.__namecall
-            mt.__namecall = newcclosure(function(self, ...)
-                local method = getnamecallmethod()
-                if method == "FireServer" or method == "InvokeServer" then
-                    if self and self.Name and (self.Name == "BulletHit" or self.Name == "HitShot") then
-                        if hitSoundEnabled and hitSoundObj then
-                            task.spawn(function()
-                                pcall(function() hitSoundObj:Play() end)
-                            end)
-                        end
+                    -- Hit sound: играем при попадании
+                    if (nm == "BulletHit" or nm == "HitShot") and hitSoundEnabled and hitSoundObj then
+                        task.spawn(function()
+                            pcall(function() hitSoundObj:Play() end)
+                        end)
                     end
                 end
-                return oldNamecall2(self, ...)
-            end)
-        end
+            end
+
+            return oldNamecall(self, unpack(args))
+        end)
+        setreadonly(mt, true)
     end)
 end
 
--- CLICK TRACKING (tracer + hitmarker на клик)
 local lastClickTime = 0
 UIS.InputBegan:Connect(function(i, gpe)
     if gpe then return end
@@ -1745,7 +1706,6 @@ UIS.InputBegan:Connect(function(i, gpe)
     end
 end)
 
--- SNAPLINE + FOV RENDER
 RS.RenderStepped:Connect(function()
     local vp = Camera.ViewportSize
     local cx = vp.X/2
@@ -1777,7 +1737,6 @@ RS.RenderStepped:Connect(function()
     end
 end)
 
--- RAPID FIRE
 local function processToolForRapidFire(tool)
     if not rapidFireEnabled then return end
     if not tool or not tool:IsA("Tool") then return end
@@ -1815,7 +1774,6 @@ task.spawn(function()
     end
 end)
 
--- CUSTOM HANDS
 local TARGET_ARM_NAMES = {
     ["RightArm"] = true,
     ["LeftArm"] = true,
@@ -1901,7 +1859,6 @@ LP.CharacterAdded:Connect(function()
     end
 end)
 
--- SKYBOX (с новыми пресетами)
 function ApplySkybox(name)
     if activeSky then activeSky:Destroy(); activeSky = nil end
     if name == "None" then return end
@@ -1945,7 +1902,6 @@ function ApplySkybox(name)
     activeSky = s
 end
 
--- ESP
 local function createESP(player)
     if espCache[player] then return end
     if not Drawing then return end
@@ -2060,7 +2016,6 @@ RS.RenderStepped:Connect(function()
     end
 end)
 
--- MAIN HEARTBEAT
 local wasInAirBhop = false
 
 RS.Heartbeat:Connect(function(dt)
@@ -2148,7 +2103,6 @@ RS.Heartbeat:Connect(function(dt)
     end
 end)
 
--- JUMP
 UIS.JumpRequest:Connect(function()
     local char = LP.Character
     if not char then return end
@@ -2159,7 +2113,6 @@ UIS.JumpRequest:Connect(function()
     end
 end)
 
--- AIR WALK
 function DoAirWalk()
     if airWalkBusy then return end
     local char = LP.Character
@@ -2199,7 +2152,6 @@ function DoAirWalk()
     airWalkBusy = false
 end
 
--- TELEPORT
 function DoTeleport()
     local char = LP.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -2208,7 +2160,6 @@ function DoTeleport()
     root.Velocity = Vector3.zero
 end
 
--- MOBILE BUTTONS
 local freezeBtnGui, freezeBtn
 local tpBtnGui, tpBtn
 local awBtnGui, awBtn
@@ -2347,14 +2298,12 @@ function DestroyAirWalkButton()
     if awBtnGui then awBtnGui:Destroy(); awBtnGui = nil; awBtn = nil end
 end
 
--- KEYBINDS
 UIS.InputBegan:Connect(function(inp, gpe)
     if gpe then return end
     if inp.KeyCode == airWalkKey then DoAirWalk() end
     if inp.KeyCode == tpKey then DoTeleport() end
 end)
 
--- INIT
 SetBorderColor(Color3.fromRGB(255,25,120))
 SetAccentColor(Color3.fromRGB(255,25,120))
 LoadColor(ACCENT_COLOR)
