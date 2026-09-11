@@ -1,6 +1,6 @@
 --========================================================--
 -- PROJECT ASTRA | t.me/epsteinhub
--- UI: Nyxon base | Logic: EpsteinHub + custom modules
+-- Delta-safe build
 --========================================================--
 
 local UIS = game:GetService("UserInputService")
@@ -8,7 +8,6 @@ local RS = game:GetService("RunService")
 local TS = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
-local Stats = game:GetService("Stats")
 local HttpService = game:GetService("HttpService")
 
 local LP = Players.LocalPlayer
@@ -17,16 +16,14 @@ local Camera = workspace.CurrentCamera
 local ok_cg, CoreGui = pcall(function() return game:GetService("CoreGui") end)
 if not ok_cg then CoreGui = LP:WaitForChild("PlayerGui") end
 
---========================================================--
--- CLEANUP
---========================================================--
-
 for _, n in ipairs({"NyxonProject","ProjectAstra","EpsteinHub","EpsteinMobile","EpsteinStats","AstraFreezeUI"}) do
     pcall(function()
         local g = CoreGui:FindFirstChild(n)
         if g then g:Destroy() end
     end)
 end
+
+print("[Astra] Starting...")
 
 --========================================================--
 -- COLORS
@@ -37,57 +34,42 @@ local PANEL    = Color3.fromRGB(24,24,29)
 local DROPBG   = Color3.fromRGB(22,22,27)
 local BARBG    = Color3.fromRGB(28,28,34)
 local CHECKBG  = Color3.fromRGB(26,26,31)
-
-local WHITE = Color3.fromRGB(235,235,235)
-local GRAY  = Color3.fromRGB(145,145,150)
+local WHITE    = Color3.fromRGB(235,235,235)
+local GRAY     = Color3.fromRGB(145,145,150)
 
 local BORDER_COLOR = Color3.fromRGB(255,25,25)
 local ACCENT_COLOR = Color3.fromRGB(255,25,25)
 
 --========================================================--
--- STATE (все переменные)
+-- STATE
 --========================================================--
 
--- Silent Aim
 local silentAimEnabled   = false
 local silentAimFov       = 150
 local silentAimPart      = "Head"
 local silentAimTeamCheck = false
 local silentAimVisCheck  = false
 
--- Bullet Tracer
 local bulletTracerEnabled = true
 local bulletTracerColor   = Color3.fromRGB(75,140,255)
 local bulletTracerLife    = 0.15
 
--- Bullet Marker / Hit Marker
 local bulletMarkerEnabled = true
 local bulletMarkerColor   = Color3.fromRGB(255,255,255)
 local bulletMarkerSize    = 8
 
--- Hit Sound
 local hitSoundEnabled = false
 local hitSoundId      = "rbxassetid://9114470561"
 local hitSoundVolume  = 1
 
--- Rapid Fire
 local rapidFireEnabled = false
 local rapidFireDelay   = 0.01
 
--- Damage check
-local damageCheckWindow = 0.35 -- сек, окно проверки урона
-
--- FOV
 local cameraFovEnabled = false
 local cameraFovValue   = 90
-
--- No Fog
-local noFogEnabled = false
-
--- Fullbright
+local noFogEnabled     = false
 local fullbrightEnabled = false
 
--- ESP
 local espEnabled   = false
 local espBox       = true
 local espName      = true
@@ -100,21 +82,16 @@ local espDistColor = Color3.fromRGB(255,255,255)
 local espWeapColor = Color3.fromRGB(255,200,0)
 local espCache     = {}
 
--- Custom Hands
 local customHandsEnabled = false
 local customHandsColor   = Color3.fromRGB(160,32,240)
 local customHandsTransp  = 0.55
 local activeLockedArms   = {}
 
--- Skybox
 local skyboxEnabled = false
 local skyboxMode    = "None"
 local activeSky     = nil
 
 local SKYBOXES = {
-    None = nil,
-    Epstein = "Epstein",
-    Gothbreach = "Gothbreach",
     ["Pink Galaxy"] = "rbxassetid://159454299",
     ["Night City"]  = "rbxassetid://6444884337",
     Aurora          = "rbxassetid://2459487571",
@@ -122,7 +99,6 @@ local SKYBOXES = {
     Space           = "rbxassetid://85646454",
 }
 
--- Movement
 local speedHackEnabled = false
 local speedValue       = 50
 local infJumpEnabled   = false
@@ -131,31 +107,20 @@ local bigJumpEnabled   = false
 local bigJumpPower     = 100
 local noClipEnabled    = false
 local bhopEnabled      = false
-local bhopMax          = 50
 local flyEnabled       = false
 local flySpeed         = 50
-local flyConn          = nil
 
--- Freeze Up
-local freezeEnabled = false
+local freezeEnabled  = false
 local freezeTargetCF = nil
-local freezeConn     = nil
 
--- Teleport
-local teleportTarget = nil
-
--- Gun Chams
 local gunChamsEnabled = false
 local gunChamsColor   = Color3.fromRGB(255,80,255)
 
--- Keybinds
 local keybinds = {
     SilentAim = Enum.KeyCode.Z,
     Fly       = Enum.KeyCode.F,
     Freeze    = Enum.KeyCode.X,
 }
-
-local waitingKeybind = nil
 
 --========================================================--
 -- GUI ROOT
@@ -178,6 +143,7 @@ local AccentRegistry = {}
 local function RegisterBorder(obj, property)
     table.insert(BorderRegistry,{object=obj, property=property or "Color"})
 end
+
 local function RegisterAccent(obj, property)
     table.insert(AccentRegistry,{object=obj, property=property or "BackgroundColor3"})
 end
@@ -244,789 +210,7 @@ local function Line(parent, y)
 end
 
 --========================================================--
--- COMPONENTS: Checkbox / Slider / Dropdown / Keybind / ColorButton
---========================================================--
-
-local function Checkbox(parent, label, default, callback, yPos)
-    local container = Instance.new("Frame")
-    container.Position = UDim2.fromOffset(10, yPos)
-    container.Size = UDim2.new(1,-20,0,24)
-    container.BackgroundTransparency = 1
-    container.Parent = parent
-
-    local box = Instance.new("TextButton")
-    box.Size = UDim2.fromOffset(18,18)
-    box.Position = UDim2.fromOffset(0,3)
-    box.BackgroundColor3 = CHECKBG
-    box.BorderSizePixel = 0
-    box.Text = ""
-    box.AutoButtonColor = false
-    box.Parent = container
-    Stroke(box,1)
-
-    local fill = Instance.new("Frame")
-    fill.Position = UDim2.fromOffset(3,3)
-    fill.Size = UDim2.fromOffset(12,12)
-    fill.BackgroundColor3 = ACCENT_COLOR
-    fill.BorderSizePixel = 0
-    fill.Visible = default and true or false
-    fill.Parent = box
-    RegisterAccent(fill,"BackgroundColor3")
-
-    Text(container, label, UDim2.fromOffset(26,0), UDim2.new(1,-26,1,0), 13, WHITE)
-
-    local state = default
-    box.MouseButton1Click:Connect(function()
-        state = not state
-        fill.Visible = state
-        if callback then callback(state) end
-    end)
-
-    return container
-end
-
-local function Slider(parent, label, minV, maxV, default, callback, yPos, suffix)
-    suffix = suffix or ""
-    local container = Instance.new("Frame")
-    container.Position = UDim2.fromOffset(10, yPos)
-    container.Size = UDim2.new(1,-20,0,44)
-    container.BackgroundTransparency = 1
-    container.Parent = parent
-
-    Text(container, label, UDim2.fromOffset(0,0), UDim2.new(1,-60,0,18), 12, WHITE)
-
-    local valLabel = Text(container, tostring(default)..suffix, UDim2.new(1,-60,0,0), UDim2.fromOffset(60,18), 12, ACCENT_COLOR)
-    valLabel.TextXAlignment = Enum.TextXAlignment.Right
-    RegisterBorder(valLabel,"TextColor3")
-
-    local bar = Instance.new("Frame")
-    bar.Position = UDim2.fromOffset(0,22)
-    bar.Size = UDim2.new(1,0,0,18)
-    bar.BackgroundColor3 = BARBG
-    bar.BorderSizePixel = 0
-    bar.Parent = container
-    Stroke(bar,1)
-
-    local ratio = (default - minV) / (maxV - minV)
-    local fill = Instance.new("Frame")
-    fill.Size = UDim2.new(ratio,0,1,0)
-    fill.BackgroundColor3 = ACCENT_COLOR
-    fill.BorderSizePixel = 0
-    fill.Parent = bar
-    RegisterAccent(fill,"BackgroundColor3")
-
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.fromScale(1,1)
-    btn.BackgroundTransparency = 1
-    btn.Text = ""
-    btn.ZIndex = 5
-    btn.Parent = bar
-
-    local dragging = false
-    local function update(input)
-        local x = input.Position.X - bar.AbsolutePosition.X
-        local r = math.clamp(x / bar.AbsoluteSize.X, 0, 1)
-        fill.Size = UDim2.new(r,0,1,0)
-        local v = math.floor(minV + (maxV-minV)*r + 0.5)
-        valLabel.Text = tostring(v)..suffix
-        if callback then callback(v) end
-    end
-
-    btn.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            update(i)
-        end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
-            update(i)
-        end
-    end)
-    UIS.InputEnded:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end)
-
-    return container
-end
-
-local function Dropdown(parent, label, options, default, callback, yPos)
-    local container = Instance.new("Frame")
-    container.Position = UDim2.fromOffset(10, yPos)
-    container.Size = UDim2.new(1,-20,0,52)
-    container.BackgroundTransparency = 1
-    container.ClipsDescendants = false
-    container.ZIndex = 50
-    container.Parent = parent
-
-    Text(container, label, UDim2.fromOffset(0,0), UDim2.new(1,0,0,18), 12, WHITE)
-
-    local drop = Instance.new("Frame")
-    drop.Position = UDim2.fromOffset(0,20)
-    drop.Size = UDim2.new(1,0,0,28)
-    drop.BackgroundColor3 = DROPBG
-    drop.BorderSizePixel = 0
-    drop.ZIndex = 51
-    drop.Parent = container
-    Stroke(drop,1)
-
-    local selText = Text(drop, default or (options[1] or ""), UDim2.fromOffset(8,0), UDim2.new(1,-30,1,0), 12, WHITE)
-    selText.ZIndex = 52
-
-    local arrow = Text(drop, "v", UDim2.new(1,-22,0,0), UDim2.fromOffset(20,28), 11, WHITE)
-    arrow.TextXAlignment = Enum.TextXAlignment.Center
-    arrow.ZIndex = 52
-
-    local click = Instance.new("TextButton")
-    click.Size = UDim2.fromScale(1,1)
-    click.BackgroundTransparency = 1
-    click.Text = ""
-    click.ZIndex = 55
-    click.Parent = drop
-
-    local menu = Instance.new("Frame")
-    menu.Position = UDim2.fromOffset(0,29)
-    menu.Size = UDim2.new(1,0,0,#options*24)
-    menu.BackgroundColor3 = DROPBG
-    menu.BorderSizePixel = 0
-    menu.Visible = false
-    menu.ZIndex = 100
-    menu.Parent = drop
-    Stroke(menu,1)
-
-    for i,opt in ipairs(options) do
-        local ob = Instance.new("TextButton")
-        ob.Position = UDim2.fromOffset(0,(i-1)*24)
-        ob.Size = UDim2.new(1,0,0,24)
-        ob.BackgroundColor3 = DROPBG
-        ob.BorderSizePixel = 0
-        ob.Text = opt
-        ob.TextColor3 = WHITE
-        ob.Font = Enum.Font.Code
-        ob.TextSize = 12
-        ob.TextXAlignment = Enum.TextXAlignment.Left
-        ob.AutoButtonColor = false
-        ob.ZIndex = 101
-        ob.Parent = menu
-        Instance.new("UIPadding",ob).PaddingLeft = UDim.new(0,8)
-
-        ob.MouseButton1Click:Connect(function()
-            selText.Text = opt
-            menu.Visible = false
-            if callback then callback(opt) end
-        end)
-    end
-
-    click.MouseButton1Click:Connect(function()
-        menu.Visible = not menu.Visible
-    end)
-
-    return container
-end
-
-local function KeybindRow(parent, label, default, setter, yPos)
-    local container = Instance.new("Frame")
-    container.Position = UDim2.fromOffset(10, yPos)
-    container.Size = UDim2.new(1,-20,0,24)
-    container.BackgroundTransparency = 1
-    container.Parent = parent
-
-    Text(container, label, UDim2.fromOffset(0,0), UDim2.new(1,-80,1,0), 13, WHITE)
-
-    local kb = Instance.new("TextButton")
-    kb.AnchorPoint = Vector2.new(1,0)
-    kb.Position = UDim2.new(1,0,0,3)
-    kb.Size = UDim2.fromOffset(70,18)
-    kb.BackgroundColor3 = CHECKBG
-    kb.BorderSizePixel = 0
-    kb.Text = default.Name
-    kb.TextColor3 = WHITE
-    kb.Font = Enum.Font.Code
-    kb.TextSize = 11
-    kb.AutoButtonColor = false
-    kb.Parent = container
-    Stroke(kb,1)
-
-    local waiting = false
-    kb.MouseButton1Click:Connect(function()
-        waiting = true
-        kb.Text = "..."
-    end)
-
-    UIS.InputBegan:Connect(function(inp,gpe)
-        if waiting and not gpe and inp.UserInputType == Enum.UserInputType.Keyboard then
-            setter(inp.KeyCode)
-            kb.Text = inp.KeyCode.Name
-            waiting = false
-        end
-    end)
-
-    return container
-end
-
-local function ColorRow(parent, label, getColor, setColor, yPos)
-    local container = Instance.new("Frame")
-    container.Position = UDim2.fromOffset(10, yPos)
-    container.Size = UDim2.new(1,-20,0,24)
-    container.BackgroundTransparency = 1
-    container.Parent = parent
-
-    Text(container, label, UDim2.fromOffset(0,0), UDim2.new(1,-60,1,0), 13, WHITE)
-
-    local btn = Instance.new("TextButton")
-    btn.AnchorPoint = Vector2.new(1,0)
-    btn.Position = UDim2.new(1,0,0,2)
-    btn.Size = UDim2.fromOffset(50,20)
-    btn.BackgroundColor3 = getColor()
-    btn.BorderSizePixel = 0
-    btn.Text = ""
-    btn.AutoButtonColor = false
-    btn.Parent = container
-    Stroke(btn,1)
-
-    btn.MouseButton1Click:Connect(function()
-        OpenPickerForColor(btn, getColor, setColor)
-    end)
-
-    return container
-end
-
--- forward declaration (color picker)
-local OpenPickerForColor
-
---========================================================--
--- MAIN WINDOW
---========================================================--
-
-local Main = Instance.new("Frame")
-Main.Name = "Main"
-Main.Size = UDim2.fromOffset(944,593)
-Main.BackgroundColor3 = BG
-Main.BorderSizePixel = 0
-Main.ClipsDescendants = true
-Main.Parent = ScreenGui
-
-local MainScale = Instance.new("UIScale")
-MainScale.Scale = 0.55
-MainScale.Parent = Main
-Stroke(Main,1.5)
-
-local function CenterMain()
-    local vp = Camera.ViewportSize
-    local scale = MainScale.Scale
-    local w = Main.Size.X.Offset * scale
-    local h = Main.Size.Y.Offset * scale
-    Main.Position = UDim2.fromOffset((vp.X-w)/2,(vp.Y-h)/2)
-end
-CenterMain()
-
-local TitleBar = Instance.new("Frame")
-TitleBar.Size = UDim2.new(1,0,0,41)
-TitleBar.BackgroundColor3 = BG
-TitleBar.BorderSizePixel = 0
-TitleBar.Parent = Main
-Text(TitleBar, "Project Astra | t.me/epsteinhub", UDim2.fromOffset(12,0), UDim2.new(1,-24,1,0), 14, WHITE)
-Line(Main,41)
-
---========================================================--
--- TABS
---========================================================--
-
-local Tabs = Instance.new("Frame")
-Tabs.Position = UDim2.fromOffset(0,42)
-Tabs.Size = UDim2.new(1,0,0,40)
-Tabs.BackgroundColor3 = BG
-Tabs.BorderSizePixel = 0
-Tabs.Parent = Main
-
-local TabNames = { "Combat", "Visuals", "Misc", "Settings" }
-local TabButtons = {}
-
-for i,name in ipairs(TabNames) do
-    local b = Instance.new("TextButton")
-    b.Position = UDim2.new((i-1)*0.25,0,0,0)
-    b.Size = UDim2.new(0.25,0,1,0)
-    b.BackgroundTransparency = 1
-    b.BorderSizePixel = 0
-    b.Text = name
-    b.TextColor3 = i==1 and WHITE or GRAY
-    b.Font = Enum.Font.Code
-    b.TextSize = 14
-    b.AutoButtonColor = false
-    b.Parent = Tabs
-    TabButtons[i] = b
-end
-Line(Main,82)
-
-local Pages = {}
-for i,name in ipairs(TabNames) do
-    local page = Instance.new("Frame")
-    page.Name = name
-    page.Position = UDim2.fromOffset(0,83)
-    page.Size = UDim2.new(1,0,1,-83)
-    page.BackgroundTransparency = 1
-    page.BorderSizePixel = 0
-    page.Visible = (i==1)
-    page.Parent = Main
-    Pages[i] = page
-
-    local scroll = Instance.new("ScrollingFrame")
-    scroll.Size = UDim2.fromScale(1,1)
-    scroll.BackgroundTransparency = 1
-    scroll.BorderSizePixel = 0
-    scroll.ScrollBarThickness = 3
-    scroll.ScrollBarImageColor3 = ACCENT_COLOR
-    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    scroll.CanvasSize = UDim2.new()
-    scroll.Parent = page
-
-    local layout = Instance.new("UIListLayout",scroll)
-    layout.Padding = UDim.new(0,4)
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-
-    local pad = Instance.new("UIPadding",scroll)
-    pad.PaddingTop = UDim.new(0,8)
-    pad.PaddingLeft = UDim.new(0,8)
-    pad.PaddingRight = UDim.new(0,8)
-    pad.PaddingBottom = UDim.new(0,8)
-
-    page:SetAttribute("Scroll", scroll)
-end
-
-local function GetScroll(pageIndex)
-    return Pages[pageIndex]:GetAttribute("Scroll") or Pages[pageIndex]:FindFirstChildOfClass("ScrollingFrame")
-end
-
---========================================================--
--- COMBAT PAGE
---========================================================--
-
-local CombatScroll = GetScroll(1)
-local cY = 0
-
--- Silent Aim
-local function section(parent, title, y)
-    local f = Instance.new("Frame")
-    f.Position = UDim2.fromOffset(0,y)
-    f.Size = UDim2.new(1,0,0,24)
-    f.BackgroundColor3 = PANEL
-    f.BorderSizePixel = 0
-    f.Parent = parent
-    Stroke(f,1)
-    Text(f,title,UDim2.fromOffset(8,0),UDim2.new(1,-16,1,0),13,ACCENT_COLOR)
-    RegisterBorder(f:FindFirstChildOfClass("TextLabel"), "TextColor3")
-    return 26
-end
-
-cY = cY + section(CombatScroll, "SILENT AIM", cY)
-Checkbox(CombatScroll, "Enable Silent Aim", false, function(v) silentAimEnabled = v end, cY); cY = cY + 26
-Slider(CombatScroll, "Silent Aim FOV", 10, 500, 150, function(v) silentAimFov = v end, cY, "px"); cY = cY + 46
-Dropdown(CombatScroll, "Hit Part", {"Head","Torso","HumanoidRootPart"}, "Head", function(v) silentAimPart = v end, cY); cY = cY + 54
-Checkbox(CombatScroll, "Team Check", false, function(v) silentAimTeamCheck = v end, cY); cY = cY + 26
-Checkbox(CombatScroll, "Visible Check", false, function(v) silentAimVisCheck = v end, cY); cY = cY + 26
-KeybindRow(CombatScroll, "Aim Keybind", keybinds.SilentAim, function(k) keybinds.SilentAim = k end, cY); cY = cY + 26
-
-cY = cY + 6
-cY = cY + section(CombatScroll, "BULLET EFFECTS", cY)
-Checkbox(CombatScroll, "Bullet Tracer", true, function(v) bulletTracerEnabled = v end, cY); cY = cY + 26
-ColorRow(CombatScroll, "Tracer Color", function() return bulletTracerColor end, function(c) bulletTracerColor = c end, cY); cY = cY + 26
-Slider(CombatScroll, "Tracer Lifetime", 1, 50, 15, function(v) bulletTracerLife = v/100 end, cY, "cs"); cY = cY + 46
-Checkbox(CombatScroll, "Bullet Marker", true, function(v) bulletMarkerEnabled = v end, cY); cY = cY + 26
-ColorRow(CombatScroll, "Marker Color", function() return bulletMarkerColor end, function(c) bulletMarkerColor = c end, cY); cY = cY + 26
-Slider(CombatScroll, "Marker Size", 2, 30, 8, function(v) bulletMarkerSize = v end, cY, "px"); cY = cY + 46
-
-cY = cY + 6
-cY = cY + section(CombatScroll, "HIT SOUND", cY)
-Checkbox(CombatScroll, "Enable Hit Sound", false, function(v) hitSoundEnabled = v end, cY); cY = cY + 26
-local soundInput = Instance.new("Frame")
-soundInput.Position = UDim2.fromOffset(10,cY)
-soundInput.Size = UDim2.new(1,-20,0,48)
-soundInput.BackgroundTransparency = 1
-soundInput.Parent = CombatScroll
-Text(soundInput,"Sound ID",UDim2.fromOffset(0,0),UDim2.new(1,0,0,18),12,WHITE)
-local sBox = Instance.new("TextBox")
-sBox.Position = UDim2.fromOffset(0,20)
-sBox.Size = UDim2.new(1,0,0,24)
-sBox.BackgroundColor3 = DROPBG
-sBox.BorderSizePixel = 0
-sBox.Text = hitSoundId
-sBox.TextColor3 = WHITE
-sBox.Font = Enum.Font.Code
-sBox.TextSize = 11
-sBox.ClearTextOnFocus = false
-sBox.Parent = soundInput
-Stroke(sBox,1)
-sBox.FocusLost:Connect(function() hitSoundId = sBox.Text end)
-cY = cY + 50
-Slider(CombatScroll, "Volume", 0, 3, 1, function(v) hitSoundVolume = v end, cY); cY = cY + 46
-
-cY = cY + 6
-cY = cY + section(CombatScroll, "RAPID FIRE", cY)
-Checkbox(CombatScroll, "Enable Rapid Fire", false, function(v) rapidFireEnabled = v end, cY); cY = cY + 26
-Slider(CombatScroll, "Fire Delay (ms)", 10, 500000, 100, function(v) rapidFireDelay = v/1000 end, cY); cY = cY + 46
-
---========================================================--
--- VISUALS PAGE
---========================================================--
-
-local VisScroll = GetScroll(2)
-local vY = 0
-
-vY = vY + section(VisScroll, "ESP", vY)
-Checkbox(VisScroll, "Enable ESP", false, function(v) espEnabled = v end, vY); vY = vY + 26
-Checkbox(VisScroll, "Box", true, function(v) espBox = v end, vY); vY = vY + 26
-ColorRow(VisScroll, "Box Color", function() return espBoxColor end, function(c) espBoxColor = c end, vY); vY = vY + 26
-Checkbox(VisScroll, "Name", true, function(v) espName = v end, vY); vY = vY + 26
-ColorRow(VisScroll, "Name Color", function() return espNameColor end, function(c) espNameColor = c end, vY); vY = vY + 26
-Checkbox(VisScroll, "Health", true, function(v) espHealth = v end, vY); vY = vY + 26
-Checkbox(VisScroll, "Distance", true, function(v) espDistance = v end, vY); vY = vY + 26
-ColorRow(VisScroll, "Distance Color", function() return espDistColor end, function(c) espDistColor = c end, vY); vY = vY + 26
-Checkbox(VisScroll, "Weapon", true, function(v) espWeapon = v end, vY); vY = vY + 26
-ColorRow(VisScroll, "Weapon Color", function() return espWeapColor end, function(c) espWeapColor = c end, vY); vY = vY + 26
-
-vY = vY + 6
-vY = vY + section(VisScroll, "CUSTOM HANDS", vY)
-Checkbox(VisScroll, "Enable Custom Hands", false, function(v)
-    customHandsEnabled = v
-    if v then SetupCustomHands() else RemoveCustomHands() end
-end, vY); vY = vY + 26
-ColorRow(VisScroll, "Hands Color", function() return customHandsColor end, function(c)
-    customHandsColor = c
-    for part,_ in pairs(activeLockedArms) do
-        pcall(function()
-            part.Color = c
-        end)
-    end
-end, vY); vY = vY + 26
-Slider(VisScroll, "Hands Transparency", 0, 100, 55, function(v) customHandsTransp = v/100 end, vY, "%"); vY = vY + 46
-
-vY = vY + 6
-vY = vY + section(VisScroll, "SKYBOX", vY)
-Checkbox(VisScroll, "Enable Skybox", false, function(v)
-    skyboxEnabled = v
-    if not v and activeSky then activeSky:Destroy(); activeSky = nil end
-    if v then ApplySkybox(skyboxMode) end
-end, vY); vY = vY + 26
-Dropdown(VisScroll, "Skybox Preset",
-    {"None","Epstein","Gothbreach","Pink Galaxy","Night City","Aurora","Sunset","Space"},
-    "None",
-    function(v)
-        skyboxMode = v
-        if skyboxEnabled then ApplySkybox(v) end
-    end, vY); vY = vY + 54
-
-vY = vY + 6
-vY = vY + section(VisScroll, "CAMERA", vY)
-Checkbox(VisScroll, "Custom FOV", false, function(v) cameraFovEnabled = v; if not v then Camera.FieldOfView = 70 end end, vY); vY = vY + 26
-Slider(VisScroll, "FOV Value", 60, 120, 90, function(v) cameraFovValue = v end, vY); vY = vY + 46
-Checkbox(VisScroll, "No Fog", false, function(v)
-    noFogEnabled = v
-    if v then
-        Lighting.FogEnd = 1e6
-        Lighting.FogStart = 1e5
-    else
-        Lighting.FogEnd = 100000
-        Lighting.FogStart = 0
-    end
-end, vY); vY = vY + 26
-
-vY = vY + 6
-vY = vY + section(VisScroll, "GUN CHAMS", vY)
-Checkbox(VisScroll, "Enable Gun Chams", false, function(v) gunChamsEnabled = v end, vY); vY = vY + 26
-ColorRow(VisScroll, "Gun Chams Color", function() return gunChamsColor end, function(c) gunChamsColor = c end, vY); vY = vY + 26
-
-vY = vY + 6
-vY = vY + section(VisScroll, "WORLD", vY)
-Checkbox(VisScroll, "Fullbright", false, function(v)
-    fullbrightEnabled = v
-    if v then
-        Lighting.Brightness = 3
-        Lighting.ClockTime = 14
-        Lighting.GlobalShadows = false
-    else
-        Lighting.Brightness = 1
-        Lighting.GlobalShadows = true
-    end
-end, vY); vY = vY + 26
-
---========================================================--
--- MISC PAGE
---========================================================--
-
-local MiscScroll = GetScroll(3)
-local mY = 0
-
-mY = mY + section(MiscScroll, "MOVEMENT", mY)
-Checkbox(MiscScroll, "Speed Hack", false, function(v)
-    speedHackEnabled = v
-    local h = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-    if h then h.WalkSpeed = v and speedValue or 16 end
-end, mY); mY = mY + 26
-Slider(MiscScroll, "Speed Value", 16, 500, 50, function(v)
-    speedValue = v
-    if speedHackEnabled then
-        local h = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-        if h then h.WalkSpeed = v end
-    end
-end, mY); mY = mY + 46
-
-Checkbox(MiscScroll, "Infinite Jump", false, function(v) infJumpEnabled = v end, mY); mY = mY + 26
-Checkbox(MiscScroll, "No Jump Cooldown", false, function(v) noJumpCooldown = v end, mY); mY = mY + 26
-Checkbox(MiscScroll, "Big Jump", false, function(v) bigJumpEnabled = v end, mY); mY = mY + 26
-Slider(MiscScroll, "Jump Power", 50, 500, 100, function(v)
-    bigJumpPower = v
-    if bigJumpEnabled then
-        local h = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-        if h then h.UseJumpPower = true; h.JumpPower = v end
-    end
-end, mY); mY = mY + 46
-Checkbox(MiscScroll, "No Clip", false, function(v) noClipEnabled = v end, mY); mY = mY + 26
-Checkbox(MiscScroll, "Bunny Hop", false, function(v) bhopEnabled = v end, mY); mY = mY + 26
-
-mY = mY + 6
-mY = mY + section(MiscScroll, "FLY", mY)
-Checkbox(MiscScroll, "Enable Fly", false, function(v)
-    flyEnabled = v
-    if not v and flyConn then flyConn:Disconnect(); flyConn = nil end
-end, mY); mY = mY + 26
-Slider(MiscScroll, "Fly Speed", 5, 500, 50, function(v) flySpeed = v end, mY); mY = mY + 46
-KeybindRow(MiscScroll, "Fly Keybind", keybinds.Fly, function(k) keybinds.Fly = k end, mY); mY = mY + 26
-
-mY = mY + 6
-mY = mY + section(MiscScroll, "TELEPORT", mY)
-local tpBtn = Instance.new("TextButton")
-tpBtn.Position = UDim2.fromOffset(10,mY)
-tpBtn.Size = UDim2.new(1,-20,0,28)
-tpBtn.BackgroundColor3 = ACCENT_COLOR
-tpBtn.BorderSizePixel = 0
-tpBtn.Text = "Teleport To Nearest Player"
-tpBtn.TextColor3 = WHITE
-tpBtn.Font = Enum.Font.Code
-tpBtn.TextSize = 13
-tpBtn.AutoButtonColor = false
-tpBtn.Parent = MiscScroll
-Stroke(tpBtn,1)
-RegisterAccent(tpBtn,"BackgroundColor3")
-tpBtn.MouseButton1Click:Connect(function()
-    local closest, dist = nil, math.huge
-    local myRoot = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return end
-    for _,p in ipairs(Players:GetPlayers()) do
-        if p ~= LP and p.Character then
-            local r = p.Character:FindFirstChild("HumanoidRootPart")
-            if r then
-                local d = (r.Position - myRoot.Position).Magnitude
-                if d < dist then dist = d; closest = r end
-            end
-        end
-    end
-    if closest then
-        myRoot.CFrame = closest.CFrame + Vector3.new(0,3,0)
-    end
-end)
-mY = mY + 32
-
-mY = mY + 6
-mY = mY + section(MiscScroll, "FREEZE UP", mY)
-Checkbox(MiscScroll, "Enable Freeze (hold key)", false, function(v)
-    freezeEnabled = v
-    if not v and freezeConn then freezeConn:Disconnect(); freezeConn = nil end
-end, mY); mY = mY + 26
-KeybindRow(MiscScroll, "Freeze Keybind", keybinds.Freeze, function(k) keybinds.Freeze = k end, mY); mY = mY + 26
-
-mY = mY + 6
-mY = mY + section(MiscScroll, "MOBILE FREEZE BUTTON", mY)
-Checkbox(MiscScroll, "Show Mobile Freeze Button", false, function(v)
-    if v then CreateFreezeButton() else DestroyFreezeButton() end
-end, mY); mY = mY + 26
-
---========================================================--
--- SETTINGS PAGE
---========================================================--
-
-local SetScroll = GetScroll(4)
-local sY = 0
-
-sY = sY + section(SetScroll, "UI COLORS", sY)
-local borderPreview = ColorRow(SetScroll, "Border Color", function() return BORDER_COLOR end, function(c)
-    SetBorderColor(c)
-end, sY); sY = sY + 26
-local accentPreview = ColorRow(SetScroll, "Accent Color", function() return ACCENT_COLOR end, function(c)
-    SetAccentColor(c)
-end, sY); sY = sY + 26
-
-sY = sY + 6
-sY = sY + section(SetScroll, "CONFIG", sY)
-
-local cfgPath = "ProjectAstra_Config.json"
-
-local function CollectConfig()
-    return {
-        silentAimEnabled = silentAimEnabled,
-        silentAimFov = silentAimFov,
-        silentAimPart = silentAimPart,
-        silentAimTeamCheck = silentAimTeamCheck,
-        silentAimVisCheck = silentAimVisCheck,
-        bulletTracerEnabled = bulletTracerEnabled,
-        bulletTracerColor = {bulletTracerColor.R,bulletTracerColor.G,bulletTracerColor.B},
-        bulletMarkerEnabled = bulletMarkerEnabled,
-        bulletMarkerColor = {bulletMarkerColor.R,bulletMarkerColor.G,bulletMarkerColor.B},
-        hitSoundEnabled = hitSoundEnabled,
-        hitSoundId = hitSoundId,
-        hitSoundVolume = hitSoundVolume,
-        rapidFireEnabled = rapidFireEnabled,
-        rapidFireDelay = rapidFireDelay,
-        cameraFovEnabled = cameraFovEnabled,
-        cameraFovValue = cameraFovValue,
-        noFogEnabled = noFogEnabled,
-        fullbrightEnabled = fullbrightEnabled,
-        espEnabled = espEnabled,
-        espBox = espBox,
-        espName = espName,
-        espHealth = espHealth,
-        espDistance = espDistance,
-        espWeapon = espWeapon,
-        espBoxColor = {espBoxColor.R,espBoxColor.G,espBoxColor.B},
-        espNameColor = {espNameColor.R,espNameColor.G,espNameColor.B},
-        espDistColor = {espDistColor.R,espDistColor.G,espDistColor.B},
-        espWeapColor = {espWeapColor.R,espWeapColor.G,espWeapColor.B},
-        customHandsEnabled = customHandsEnabled,
-        customHandsColor = {customHandsColor.R,customHandsColor.G,customHandsColor.B},
-        customHandsTransp = customHandsTransp,
-        skyboxEnabled = skyboxEnabled,
-        skyboxMode = skyboxMode,
-        speedHackEnabled = speedHackEnabled,
-        speedValue = speedValue,
-        infJumpEnabled = infJumpEnabled,
-        noJumpCooldown = noJumpCooldown,
-        bigJumpEnabled = bigJumpEnabled,
-        bigJumpPower = bigJumpPower,
-        noClipEnabled = noClipEnabled,
-        bhopEnabled = bhopEnabled,
-        flyEnabled = flyEnabled,
-        flySpeed = flySpeed,
-        gunChamsEnabled = gunChamsEnabled,
-        gunChamsColor = {gunChamsColor.R,gunChamsColor.G,gunChamsColor.B},
-        borderColor = {BORDER_COLOR.R,BORDER_COLOR.G,BORDER_COLOR.B},
-        accentColor = {ACCENT_COLOR.R,ACCENT_COLOR.G,ACCENT_COLOR.B},
-    }
-end
-
-local function ApplyConfig(cfg)
-    if not cfg then return end
-    silentAimEnabled = cfg.silentAimEnabled or silentAimEnabled
-    silentAimFov = cfg.silentAimFov or silentAimFov
-    silentAimPart = cfg.silentAimPart or silentAimPart
-    silentAimTeamCheck = cfg.silentAimTeamCheck or silentAimTeamCheck
-    silentAimVisCheck = cfg.silentAimVisCheck or silentAimVisCheck
-    bulletTracerEnabled = cfg.bulletTracerEnabled ~= nil and cfg.bulletTracerEnabled or bulletTracerEnabled
-    if cfg.bulletTracerColor then bulletTracerColor = Color3.new(unpack(cfg.bulletTracerColor)) end
-    bulletMarkerEnabled = cfg.bulletMarkerEnabled ~= nil and cfg.bulletMarkerEnabled or bulletMarkerEnabled
-    if cfg.bulletMarkerColor then bulletMarkerColor = Color3.new(unpack(cfg.bulletMarkerColor)) end
-    hitSoundEnabled = cfg.hitSoundEnabled or hitSoundEnabled
-    hitSoundId = cfg.hitSoundId or hitSoundId
-    hitSoundVolume = cfg.hitSoundVolume or hitSoundVolume
-    rapidFireEnabled = cfg.rapidFireEnabled or rapidFireEnabled
-    rapidFireDelay = cfg.rapidFireDelay or rapidFireDelay
-    cameraFovEnabled = cfg.cameraFovEnabled or cameraFovEnabled
-    cameraFovValue = cfg.cameraFovValue or cameraFovValue
-    noFogEnabled = cfg.noFogEnabled or noFogEnabled
-    fullbrightEnabled = cfg.fullbrightEnabled or fullbrightEnabled
-    espEnabled = cfg.espEnabled or espEnabled
-    espBox = cfg.espBox ~= nil and cfg.espBox or espBox
-    espName = cfg.espName ~= nil and cfg.espName or espName
-    espHealth = cfg.espHealth ~= nil and cfg.espHealth or espHealth
-    espDistance = cfg.espDistance ~= nil and cfg.espDistance or espDistance
-    espWeapon = cfg.espWeapon ~= nil and cfg.espWeapon or espWeapon
-    if cfg.espBoxColor then espBoxColor = Color3.new(unpack(cfg.espBoxColor)) end
-    if cfg.espNameColor then espNameColor = Color3.new(unpack(cfg.espNameColor)) end
-    if cfg.espDistColor then espDistColor = Color3.new(unpack(cfg.espDistColor)) end
-    if cfg.espWeapColor then espWeapColor = Color3.new(unpack(cfg.espWeapColor)) end
-    customHandsEnabled = cfg.customHandsEnabled or customHandsEnabled
-    if cfg.customHandsColor then customHandsColor = Color3.new(unpack(cfg.customHandsColor)) end
-    customHandsTransp = cfg.customHandsTransp or customHandsTransp
-    skyboxEnabled = cfg.skyboxEnabled or skyboxEnabled
-    skyboxMode = cfg.skyboxMode or skyboxMode
-    speedHackEnabled = cfg.speedHackEnabled or speedHackEnabled
-    speedValue = cfg.speedValue or speedValue
-    infJumpEnabled = cfg.infJumpEnabled or infJumpEnabled
-    noJumpCooldown = cfg.noJumpCooldown or noJumpCooldown
-    bigJumpEnabled = cfg.bigJumpEnabled or bigJumpEnabled
-    bigJumpPower = cfg.bigJumpPower or bigJumpPower
-    noClipEnabled = cfg.noClipEnabled or noClipEnabled
-    bhopEnabled = cfg.bhopEnabled or bhopEnabled
-    flyEnabled = cfg.flyEnabled or flyEnabled
-    flySpeed = cfg.flySpeed or flySpeed
-    gunChamsEnabled = cfg.gunChamsEnabled or gunChamsEnabled
-    if cfg.gunChamsColor then gunChamsColor = Color3.new(unpack(cfg.gunChamsColor)) end
-    if cfg.borderColor then SetBorderColor(Color3.new(unpack(cfg.borderColor))) end
-    if cfg.accentColor then SetAccentColor(Color3.new(unpack(cfg.accentColor))) end
-
-    -- apply live
-    if fullbrightEnabled then
-        Lighting.Brightness = 3; Lighting.ClockTime = 14; Lighting.GlobalShadows = false
-    end
-    if customHandsEnabled then SetupCustomHands() else RemoveCustomHands() end
-    if skyboxEnabled then ApplySkybox(skyboxMode) end
-end
-
-local saveBtn = Instance.new("TextButton")
-saveBtn.Position = UDim2.fromOffset(10,sY)
-saveBtn.Size = UDim2.new(1,-20,0,28)
-saveBtn.BackgroundColor3 = ACCENT_COLOR
-saveBtn.BorderSizePixel = 0
-saveBtn.Text = "Save Config (JSON)"
-saveBtn.TextColor3 = WHITE
-saveBtn.Font = Enum.Font.Code
-saveBtn.TextSize = 13
-saveBtn.AutoButtonColor = false
-saveBtn.Parent = SetScroll
-Stroke(saveBtn,1)
-RegisterAccent(saveBtn,"BackgroundColor3")
-saveBtn.MouseButton1Click:Connect(function()
-    local ok, err = pcall(function()
-        if writefile then
-            writefile(cfgPath, HttpService:JSONEncode(CollectConfig()))
-            print("[Astra] Config saved.")
-        else
-            warn("[Astra] writefile not available")
-        end
-    end)
-    if not ok then warn("[Astra] Save error: "..tostring(err)) end
-end)
-sY = sY + 32
-
-local loadBtn = Instance.new("TextButton")
-loadBtn.Position = UDim2.fromOffset(10,sY)
-loadBtn.Size = UDim2.new(1,-20,0,28)
-loadBtn.BackgroundColor3 = ACCENT_COLOR
-loadBtn.BorderSizePixel = 0
-loadBtn.Text = "Load Config (JSON)"
-loadBtn.TextColor3 = WHITE
-loadBtn.Font = Enum.Font.Code
-loadBtn.TextSize = 13
-loadBtn.AutoButtonColor = false
-loadBtn.Parent = SetScroll
-Stroke(loadBtn,1)
-RegisterAccent(loadBtn,"BackgroundColor3")
-loadBtn.MouseButton1Click:Connect(function()
-    local ok, err = pcall(function()
-        if isfile and isfile(cfgPath) then
-            local cfg = HttpService:JSONDecode(readfile(cfgPath))
-            ApplyConfig(cfg)
-            print("[Astra] Config loaded.")
-        else
-            warn("[Astra] No config file found.")
-        end
-    end)
-    if not ok then warn("[Astra] Load error: "..tostring(err)) end
-end)
-sY = sY + 32
-
---========================================================--
--- COLOR PICKER
+-- COLOR PICKER (объявлен ДО использования)
 --========================================================--
 
 local Picker = Instance.new("Frame")
@@ -1135,8 +319,7 @@ local PaletteDragging, HueDragging = false,false
 local CurrentSetter = nil
 
 local function UpdatePicker()
-    local hueColor = Color3.fromHSV(HueValue,1,1)
-    Palette.BackgroundColor3 = hueColor
+    Palette.BackgroundColor3 = Color3.fromHSV(HueValue,1,1)
     PendingColor = Color3.fromHSV(HueValue,Saturation,Brightness)
     PaletteCursor.Position = UDim2.new(Saturation,0,1-Brightness,0)
     HueCursor.Position = UDim2.new(0.5,0,HueValue,0)
@@ -1194,10 +377,9 @@ UIS.InputEnded:Connect(function(i)
     end
 end)
 
-OpenPickerForColor = function(previewBtn, getColor, setColor)
+local function OpenPickerForColor(previewBtn, getColor, setColor)
     LoadColor(getColor())
     CurrentSetter = setColor
-
     local p = previewBtn.AbsolutePosition
     local vp = Camera.ViewportSize
     local x = p.X + 60
@@ -1212,6 +394,759 @@ ApplyButton.MouseButton1Click:Connect(function()
     if CurrentSetter then CurrentSetter(PendingColor) end
     Picker.Visible = false
 end)
+
+--========================================================--
+-- COMPONENTS
+--========================================================--
+
+local function Checkbox(parent, label, default, callback, yPos)
+    local container = Instance.new("Frame")
+    container.Position = UDim2.fromOffset(10, yPos)
+    container.Size = UDim2.new(1,-20,0,24)
+    container.BackgroundTransparency = 1
+    container.Parent = parent
+
+    local box = Instance.new("TextButton")
+    box.Size = UDim2.fromOffset(18,18)
+    box.Position = UDim2.fromOffset(0,3)
+    box.BackgroundColor3 = CHECKBG
+    box.BorderSizePixel = 0
+    box.Text = ""
+    box.AutoButtonColor = false
+    box.Parent = container
+    Stroke(box,1)
+
+    local fill = Instance.new("Frame")
+    fill.Position = UDim2.fromOffset(3,3)
+    fill.Size = UDim2.fromOffset(12,12)
+    fill.BackgroundColor3 = ACCENT_COLOR
+    fill.BorderSizePixel = 0
+    fill.Visible = default and true or false
+    fill.Parent = box
+    RegisterAccent(fill,"BackgroundColor3")
+
+    Text(container, label, UDim2.fromOffset(26,0), UDim2.new(1,-26,1,0), 13, WHITE)
+
+    local state = default
+    box.MouseButton1Click:Connect(function()
+        state = not state
+        fill.Visible = state
+        if callback then callback(state) end
+    end)
+    return container
+end
+
+local function Slider(parent, label, minV, maxV, default, callback, yPos, suffix)
+    suffix = suffix or ""
+    local container = Instance.new("Frame")
+    container.Position = UDim2.fromOffset(10, yPos)
+    container.Size = UDim2.new(1,-20,0,44)
+    container.BackgroundTransparency = 1
+    container.Parent = parent
+
+    Text(container, label, UDim2.fromOffset(0,0), UDim2.new(1,-60,0,18), 12, WHITE)
+
+    local valLabel = Text(container, tostring(default)..suffix, UDim2.new(1,-60,0,0), UDim2.fromOffset(60,18), 12, ACCENT_COLOR)
+    valLabel.TextXAlignment = Enum.TextXAlignment.Right
+    RegisterBorder(valLabel,"TextColor3")
+
+    local bar = Instance.new("Frame")
+    bar.Position = UDim2.fromOffset(0,22)
+    bar.Size = UDim2.new(1,0,0,18)
+    bar.BackgroundColor3 = BARBG
+    bar.BorderSizePixel = 0
+    bar.Parent = container
+    Stroke(bar,1)
+
+    local ratio = (default - minV) / (maxV - minV)
+    local fill = Instance.new("Frame")
+    fill.Size = UDim2.new(ratio,0,1,0)
+    fill.BackgroundColor3 = ACCENT_COLOR
+    fill.BorderSizePixel = 0
+    fill.Parent = bar
+    RegisterAccent(fill,"BackgroundColor3")
+
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.fromScale(1,1)
+    btn.BackgroundTransparency = 1
+    btn.Text = ""
+    btn.ZIndex = 5
+    btn.Parent = bar
+
+    local dragging = false
+    local function update(input)
+        local x = input.Position.X - bar.AbsolutePosition.X
+        local r = math.clamp(x / bar.AbsoluteSize.X, 0, 1)
+        fill.Size = UDim2.new(r,0,1,0)
+        local v = math.floor(minV + (maxV-minV)*r + 0.5)
+        valLabel.Text = tostring(v)..suffix
+        if callback then callback(v) end
+    end
+
+    btn.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            update(i)
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+            update(i)
+        end
+    end)
+    UIS.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+    return container
+end
+
+local function Dropdown(parent, label, options, default, callback, yPos)
+    local container = Instance.new("Frame")
+    container.Position = UDim2.fromOffset(10, yPos)
+    container.Size = UDim2.new(1,-20,0,52)
+    container.BackgroundTransparency = 1
+    container.ClipsDescendants = false
+    container.ZIndex = 50
+    container.Parent = parent
+
+    Text(container, label, UDim2.fromOffset(0,0), UDim2.new(1,0,0,18), 12, WHITE)
+
+    local drop = Instance.new("Frame")
+    drop.Position = UDim2.fromOffset(0,20)
+    drop.Size = UDim2.new(1,0,0,28)
+    drop.BackgroundColor3 = DROPBG
+    drop.BorderSizePixel = 0
+    drop.ZIndex = 51
+    drop.Parent = container
+    Stroke(drop,1)
+
+    local selText = Text(drop, default or (options[1] or ""), UDim2.fromOffset(8,0), UDim2.new(1,-30,1,0), 12, WHITE)
+    selText.ZIndex = 52
+
+    local arrow = Text(drop, "v", UDim2.new(1,-22,0,0), UDim2.fromOffset(20,28), 11, WHITE)
+    arrow.TextXAlignment = Enum.TextXAlignment.Center
+    arrow.ZIndex = 52
+
+    local click = Instance.new("TextButton")
+    click.Size = UDim2.fromScale(1,1)
+    click.BackgroundTransparency = 1
+    click.Text = ""
+    click.ZIndex = 55
+    click.Parent = drop
+
+    local menu = Instance.new("Frame")
+    menu.Position = UDim2.fromOffset(0,29)
+    menu.Size = UDim2.new(1,0,0,#options*24)
+    menu.BackgroundColor3 = DROPBG
+    menu.BorderSizePixel = 0
+    menu.Visible = false
+    menu.ZIndex = 100
+    menu.Parent = drop
+    Stroke(menu,1)
+
+    for i,opt in ipairs(options) do
+        local ob = Instance.new("TextButton")
+        ob.Position = UDim2.fromOffset(0,(i-1)*24)
+        ob.Size = UDim2.new(1,0,0,24)
+        ob.BackgroundColor3 = DROPBG
+        ob.BorderSizePixel = 0
+        ob.Text = opt
+        ob.TextColor3 = WHITE
+        ob.Font = Enum.Font.Code
+        ob.TextSize = 12
+        ob.TextXAlignment = Enum.TextXAlignment.Left
+        ob.AutoButtonColor = false
+        ob.ZIndex = 101
+        ob.Parent = menu
+        Instance.new("UIPadding",ob).PaddingLeft = UDim.new(0,8)
+
+        ob.MouseButton1Click:Connect(function()
+            selText.Text = opt
+            menu.Visible = false
+            if callback then callback(opt) end
+        end)
+    end
+
+    click.MouseButton1Click:Connect(function()
+        menu.Visible = not menu.Visible
+    end)
+    return container
+end
+
+local function KeybindRow(parent, label, default, setter, yPos)
+    local container = Instance.new("Frame")
+    container.Position = UDim2.fromOffset(10, yPos)
+    container.Size = UDim2.new(1,-20,0,24)
+    container.BackgroundTransparency = 1
+    container.Parent = parent
+
+    Text(container, label, UDim2.fromOffset(0,0), UDim2.new(1,-80,1,0), 13, WHITE)
+
+    local kb = Instance.new("TextButton")
+    kb.AnchorPoint = Vector2.new(1,0)
+    kb.Position = UDim2.new(1,0,0,3)
+    kb.Size = UDim2.fromOffset(70,18)
+    kb.BackgroundColor3 = CHECKBG
+    kb.BorderSizePixel = 0
+    kb.Text = default.Name
+    kb.TextColor3 = WHITE
+    kb.Font = Enum.Font.Code
+    kb.TextSize = 11
+    kb.AutoButtonColor = false
+    kb.Parent = container
+    Stroke(kb,1)
+
+    local waiting = false
+    kb.MouseButton1Click:Connect(function()
+        waiting = true
+        kb.Text = "..."
+    end)
+    UIS.InputBegan:Connect(function(inp,gpe)
+        if waiting and not gpe and inp.UserInputType == Enum.UserInputType.Keyboard then
+            setter(inp.KeyCode)
+            kb.Text = inp.KeyCode.Name
+            waiting = false
+        end
+    end)
+    return container
+end
+
+local function ColorRow(parent, label, getColor, setColor, yPos)
+    local container = Instance.new("Frame")
+    container.Position = UDim2.fromOffset(10, yPos)
+    container.Size = UDim2.new(1,-20,0,24)
+    container.BackgroundTransparency = 1
+    container.Parent = parent
+
+    Text(container, label, UDim2.fromOffset(0,0), UDim2.new(1,-60,1,0), 13, WHITE)
+
+    local btn = Instance.new("TextButton")
+    btn.AnchorPoint = Vector2.new(1,0)
+    btn.Position = UDim2.new(1,0,0,2)
+    btn.Size = UDim2.fromOffset(50,20)
+    btn.BackgroundColor3 = getColor()
+    btn.BorderSizePixel = 0
+    btn.Text = ""
+    btn.AutoButtonColor = false
+    btn.Parent = container
+    Stroke(btn,1)
+
+    btn.MouseButton1Click:Connect(function()
+        OpenPickerForColor(btn, getColor, function(c)
+            btn.BackgroundColor3 = c
+            setColor(c)
+        end)
+    end)
+    return container
+end
+
+--========================================================--
+-- MAIN WINDOW
+--========================================================--
+
+local Main = Instance.new("Frame")
+Main.Name = "Main"
+Main.Size = UDim2.fromOffset(944,593)
+Main.BackgroundColor3 = BG
+Main.BorderSizePixel = 0
+Main.ClipsDescendants = true
+Main.Parent = ScreenGui
+
+local MainScale = Instance.new("UIScale")
+MainScale.Scale = 0.55
+MainScale.Parent = Main
+Stroke(Main,1.5)
+
+local function CenterMain()
+    local vp = Camera.ViewportSize
+    local scale = MainScale.Scale
+    local w = Main.Size.X.Offset * scale
+    local h = Main.Size.Y.Offset * scale
+    Main.Position = UDim2.fromOffset((vp.X-w)/2,(vp.Y-h)/2)
+end
+CenterMain()
+
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1,0,0,41)
+TitleBar.BackgroundColor3 = BG
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = Main
+Text(TitleBar, "Project Astra | t.me/epsteinhub", UDim2.fromOffset(12,0), UDim2.new(1,-24,1,0), 14, WHITE)
+Line(Main,41)
+
+local Tabs = Instance.new("Frame")
+Tabs.Position = UDim2.fromOffset(0,42)
+Tabs.Size = UDim2.new(1,0,0,40)
+Tabs.BackgroundColor3 = BG
+Tabs.BorderSizePixel = 0
+Tabs.Parent = Main
+
+local TabNames = { "Combat", "Visuals", "Misc", "Settings" }
+local TabButtons = {}
+
+for i,name in ipairs(TabNames) do
+    local b = Instance.new("TextButton")
+    b.Position = UDim2.new((i-1)*0.25,0,0,0)
+    b.Size = UDim2.new(0.25,0,1,0)
+    b.BackgroundTransparency = 1
+    b.BorderSizePixel = 0
+    b.Text = name
+    b.TextColor3 = i==1 and WHITE or GRAY
+    b.Font = Enum.Font.Code
+    b.TextSize = 14
+    b.AutoButtonColor = false
+    b.Parent = Tabs
+    TabButtons[i] = b
+end
+Line(Main,82)
+
+--========================================================--
+-- PAGES (без SetAttribute — прямая таблица)
+--========================================================--
+
+local Pages = {}
+local Scrolls = {}
+
+for i,name in ipairs(TabNames) do
+    local page = Instance.new("Frame")
+    page.Name = name
+    page.Position = UDim2.fromOffset(0,83)
+    page.Size = UDim2.new(1,0,1,-83)
+    page.BackgroundTransparency = 1
+    page.BorderSizePixel = 0
+    page.Visible = (i==1)
+    page.Parent = Main
+
+    local scroll = Instance.new("ScrollingFrame")
+    scroll.Name = "Scroll"
+    scroll.Size = UDim2.fromScale(1,1)
+    scroll.BackgroundTransparency = 1
+    scroll.BorderSizePixel = 0
+    scroll.ScrollBarThickness = 3
+    scroll.ScrollBarImageColor3 = ACCENT_COLOR
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scroll.CanvasSize = UDim2.new()
+    scroll.Parent = page
+
+    local layout = Instance.new("UIListLayout",scroll)
+    layout.Padding = UDim.new(0,4)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+
+    local pad = Instance.new("UIPadding",scroll)
+    pad.PaddingTop = UDim.new(0,8)
+    pad.PaddingLeft = UDim.new(0,8)
+    pad.PaddingRight = UDim.new(0,8)
+    pad.PaddingBottom = UDim.new(0,8)
+
+    Pages[i] = page
+    Scrolls[i] = scroll
+end
+
+local function section(parent, title, y)
+    local f = Instance.new("Frame")
+    f.Position = UDim2.fromOffset(0,y)
+    f.Size = UDim2.new(1,0,0,24)
+    f.BackgroundColor3 = PANEL
+    f.BorderSizePixel = 0
+    f.Parent = parent
+    Stroke(f,1)
+    Text(f,title,UDim2.fromOffset(8,0),UDim2.new(1,-16,1,0),13,ACCENT_COLOR)
+    return 26
+end
+
+--========================================================--
+-- COMBAT
+--========================================================--
+
+local CombatScroll = Scrolls[1]
+local cY = 0
+
+cY = cY + section(CombatScroll, "SILENT AIM", cY)
+Checkbox(CombatScroll, "Enable Silent Aim", false, function(v) silentAimEnabled = v end, cY); cY = cY + 26
+Slider(CombatScroll, "Silent Aim FOV", 10, 500, 150, function(v) silentAimFov = v end, cY, "px"); cY = cY + 46
+Dropdown(CombatScroll, "Hit Part", {"Head","Torso","HumanoidRootPart"}, "Head", function(v) silentAimPart = v end, cY); cY = cY + 54
+Checkbox(CombatScroll, "Team Check", false, function(v) silentAimTeamCheck = v end, cY); cY = cY + 26
+Checkbox(CombatScroll, "Visible Check", false, function(v) silentAimVisCheck = v end, cY); cY = cY + 26
+KeybindRow(CombatScroll, "Aim Keybind", keybinds.SilentAim, function(k) keybinds.SilentAim = k end, cY); cY = cY + 26
+
+cY = cY + 6
+cY = cY + section(CombatScroll, "BULLET EFFECTS", cY)
+Checkbox(CombatScroll, "Bullet Tracer", true, function(v) bulletTracerEnabled = v end, cY); cY = cY + 26
+ColorRow(CombatScroll, "Tracer Color", function() return bulletTracerColor end, function(c) bulletTracerColor = c end, cY); cY = cY + 26
+Slider(CombatScroll, "Tracer Lifetime", 1, 50, 15, function(v) bulletTracerLife = v/100 end, cY, "cs"); cY = cY + 46
+Checkbox(CombatScroll, "Bullet Marker", true, function(v) bulletMarkerEnabled = v end, cY); cY = cY + 26
+ColorRow(CombatScroll, "Marker Color", function() return bulletMarkerColor end, function(c) bulletMarkerColor = c end, cY); cY = cY + 26
+Slider(CombatScroll, "Marker Size", 2, 30, 8, function(v) bulletMarkerSize = v end, cY, "px"); cY = cY + 46
+
+cY = cY + 6
+cY = cY + section(CombatScroll, "HIT SOUND", cY)
+Checkbox(CombatScroll, "Enable Hit Sound", false, function(v) hitSoundEnabled = v end, cY); cY = cY + 26
+local soundInput = Instance.new("Frame")
+soundInput.Position = UDim2.fromOffset(10,cY)
+soundInput.Size = UDim2.new(1,-20,0,48)
+soundInput.BackgroundTransparency = 1
+soundInput.Parent = CombatScroll
+Text(soundInput,"Sound ID",UDim2.fromOffset(0,0),UDim2.new(1,0,0,18),12,WHITE)
+local sBox = Instance.new("TextBox")
+sBox.Position = UDim2.fromOffset(0,20)
+sBox.Size = UDim2.new(1,0,0,24)
+sBox.BackgroundColor3 = DROPBG
+sBox.BorderSizePixel = 0
+sBox.Text = hitSoundId
+sBox.TextColor3 = WHITE
+sBox.Font = Enum.Font.Code
+sBox.TextSize = 11
+sBox.ClearTextOnFocus = false
+sBox.Parent = soundInput
+Stroke(sBox,1)
+sBox.FocusLost:Connect(function() hitSoundId = sBox.Text end)
+cY = cY + 50
+Slider(CombatScroll, "Volume", 0, 3, 1, function(v) hitSoundVolume = v end, cY); cY = cY + 46
+
+cY = cY + 6
+cY = cY + section(CombatScroll, "RAPID FIRE", cY)
+Checkbox(CombatScroll, "Enable Rapid Fire", false, function(v) rapidFireEnabled = v end, cY); cY = cY + 26
+Slider(CombatScroll, "Fire Delay (ms)", 10, 500000, 100, function(v) rapidFireDelay = v/1000 end, cY); cY = cY + 46
+
+--========================================================--
+-- VISUALS
+--========================================================--
+
+local VisScroll = Scrolls[2]
+local vY = 0
+
+vY = vY + section(VisScroll, "ESP", vY)
+Checkbox(VisScroll, "Enable ESP", false, function(v) espEnabled = v end, vY); vY = vY + 26
+Checkbox(VisScroll, "Box", true, function(v) espBox = v end, vY); vY = vY + 26
+ColorRow(VisScroll, "Box Color", function() return espBoxColor end, function(c) espBoxColor = c end, vY); vY = vY + 26
+Checkbox(VisScroll, "Name", true, function(v) espName = v end, vY); vY = vY + 26
+ColorRow(VisScroll, "Name Color", function() return espNameColor end, function(c) espNameColor = c end, vY); vY = vY + 26
+Checkbox(VisScroll, "Health", true, function(v) espHealth = v end, vY); vY = vY + 26
+Checkbox(VisScroll, "Distance", true, function(v) espDistance = v end, vY); vY = vY + 26
+ColorRow(VisScroll, "Distance Color", function() return espDistColor end, function(c) espDistColor = c end, vY); vY = vY + 26
+Checkbox(VisScroll, "Weapon", true, function(v) espWeapon = v end, vY); vY = vY + 26
+ColorRow(VisScroll, "Weapon Color", function() return espWeapColor end, function(c) espWeapColor = c end, vY); vY = vY + 26
+
+vY = vY + 6
+vY = vY + section(VisScroll, "CUSTOM HANDS", vY)
+Checkbox(VisScroll, "Enable Custom Hands", false, function(v)
+    customHandsEnabled = v
+    if v then SetupCustomHands() else RemoveCustomHands() end
+end, vY); vY = vY + 26
+ColorRow(VisScroll, "Hands Color", function() return customHandsColor end, function(c)
+    customHandsColor = c
+    for part,_ in pairs(activeLockedArms) do
+        pcall(function() part.Color = c end)
+    end
+end, vY); vY = vY + 26
+Slider(VisScroll, "Hands Transparency", 0, 100, 55, function(v) customHandsTransp = v/100 end, vY, "%"); vY = vY + 46
+
+vY = vY + 6
+vY = vY + section(VisScroll, "SKYBOX", vY)
+Checkbox(VisScroll, "Enable Skybox", false, function(v)
+    skyboxEnabled = v
+    if not v and activeSky then activeSky:Destroy(); activeSky = nil end
+    if v then ApplySkybox(skyboxMode) end
+end, vY); vY = vY + 26
+Dropdown(VisScroll, "Skybox Preset",
+    {"None","Epstein","Gothbreach","Pink Galaxy","Night City","Aurora","Sunset","Space"},
+    "None",
+    function(v)
+        skyboxMode = v
+        if skyboxEnabled then ApplySkybox(v) end
+    end, vY); vY = vY + 54
+
+vY = vY + 6
+vY = vY + section(VisScroll, "CAMERA", vY)
+Checkbox(VisScroll, "Custom FOV", false, function(v) cameraFovEnabled = v; if not v then Camera.FieldOfView = 70 end end, vY); vY = vY + 26
+Slider(VisScroll, "FOV Value", 60, 120, 90, function(v) cameraFovValue = v end, vY); vY = vY + 46
+Checkbox(VisScroll, "No Fog", false, function(v)
+    noFogEnabled = v
+    if v then
+        Lighting.FogEnd = 1e6
+        Lighting.FogStart = 1e5
+    else
+        Lighting.FogEnd = 100000
+        Lighting.FogStart = 0
+    end
+end, vY); vY = vY + 26
+
+vY = vY + 6
+vY = vY + section(VisScroll, "GUN CHAMS", vY)
+Checkbox(VisScroll, "Enable Gun Chams", false, function(v) gunChamsEnabled = v end, vY); vY = vY + 26
+ColorRow(VisScroll, "Gun Chams Color", function() return gunChamsColor end, function(c) gunChamsColor = c end, vY); vY = vY + 26
+
+vY = vY + 6
+vY = vY + section(VisScroll, "WORLD", vY)
+Checkbox(VisScroll, "Fullbright", false, function(v)
+    fullbrightEnabled = v
+    if v then
+        Lighting.Brightness = 3
+        Lighting.ClockTime = 14
+        Lighting.GlobalShadows = false
+    else
+        Lighting.Brightness = 1
+        Lighting.GlobalShadows = true
+    end
+end, vY); vY = vY + 26
+
+--========================================================--
+-- MISC
+--========================================================--
+
+local MiscScroll = Scrolls[3]
+local mY = 0
+
+mY = mY + section(MiscScroll, "MOVEMENT", mY)
+Checkbox(MiscScroll, "Speed Hack", false, function(v)
+    speedHackEnabled = v
+    local h = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+    if h then h.WalkSpeed = v and speedValue or 16 end
+end, mY); mY = mY + 26
+Slider(MiscScroll, "Speed Value", 16, 500, 50, function(v)
+    speedValue = v
+    if speedHackEnabled then
+        local h = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+        if h then h.WalkSpeed = v end
+    end
+end, mY); mY = mY + 46
+Checkbox(MiscScroll, "Infinite Jump", false, function(v) infJumpEnabled = v end, mY); mY = mY + 26
+Checkbox(MiscScroll, "No Jump Cooldown", false, function(v) noJumpCooldown = v end, mY); mY = mY + 26
+Checkbox(MiscScroll, "Big Jump", false, function(v) bigJumpEnabled = v end, mY); mY = mY + 26
+Slider(MiscScroll, "Jump Power", 50, 500, 100, function(v)
+    bigJumpPower = v
+    if bigJumpEnabled then
+        local h = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+        if h then h.UseJumpPower = true; h.JumpPower = v end
+    end
+end, mY); mY = mY + 46
+Checkbox(MiscScroll, "No Clip", false, function(v) noClipEnabled = v end, mY); mY = mY + 26
+Checkbox(MiscScroll, "Bunny Hop", false, function(v) bhopEnabled = v end, mY); mY = mY + 26
+
+mY = mY + 6
+mY = mY + section(MiscScroll, "FLY", mY)
+Checkbox(MiscScroll, "Enable Fly", false, function(v) flyEnabled = v end, mY); mY = mY + 26
+Slider(MiscScroll, "Fly Speed", 5, 500, 50, function(v) flySpeed = v end, mY); mY = mY + 46
+KeybindRow(MiscScroll, "Fly Keybind", keybinds.Fly, function(k) keybinds.Fly = k end, mY); mY = mY + 26
+
+mY = mY + 6
+mY = mY + section(MiscScroll, "TELEPORT", mY)
+local tpBtn = Instance.new("TextButton")
+tpBtn.Position = UDim2.fromOffset(10,mY)
+tpBtn.Size = UDim2.new(1,-20,0,28)
+tpBtn.BackgroundColor3 = ACCENT_COLOR
+tpBtn.BorderSizePixel = 0
+tpBtn.Text = "Teleport To Nearest Player"
+tpBtn.TextColor3 = WHITE
+tpBtn.Font = Enum.Font.Code
+tpBtn.TextSize = 13
+tpBtn.AutoButtonColor = false
+tpBtn.Parent = MiscScroll
+Stroke(tpBtn,1)
+RegisterAccent(tpBtn,"BackgroundColor3")
+tpBtn.MouseButton1Click:Connect(function()
+    local closest, dist = nil, math.huge
+    local myRoot = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+    for _,p in ipairs(Players:GetPlayers()) do
+        if p ~= LP and p.Character then
+            local r = p.Character:FindFirstChild("HumanoidRootPart")
+            if r then
+                local d = (r.Position - myRoot.Position).Magnitude
+                if d < dist then dist = d; closest = r end
+            end
+        end
+    end
+    if closest then
+        myRoot.CFrame = closest.CFrame + Vector3.new(0,3,0)
+    end
+end)
+mY = mY + 32
+
+mY = mY + 6
+mY = mY + section(MiscScroll, "FREEZE UP", mY)
+Checkbox(MiscScroll, "Enable Freeze (hold key)", false, function(v) freezeEnabled = v end, mY); mY = mY + 26
+KeybindRow(MiscScroll, "Freeze Keybind", keybinds.Freeze, function(k) keybinds.Freeze = k end, mY); mY = mY + 26
+
+mY = mY + 6
+mY = mY + section(MiscScroll, "MOBILE FREEZE BUTTON", mY)
+Checkbox(MiscScroll, "Show Mobile Freeze Button", false, function(v)
+    if v then CreateFreezeButton() else DestroyFreezeButton() end
+end, mY); mY = mY + 26
+
+--========================================================--
+-- SETTINGS
+--========================================================--
+
+local SetScroll = Scrolls[4]
+local sY = 0
+
+sY = sY + section(SetScroll, "UI COLORS", sY)
+ColorRow(SetScroll, "Border Color", function() return BORDER_COLOR end, function(c) SetBorderColor(c) end, sY); sY = sY + 26
+ColorRow(SetScroll, "Accent Color", function() return ACCENT_COLOR end, function(c) SetAccentColor(c) end, sY); sY = sY + 26
+
+sY = sY + 6
+sY = sY + section(SetScroll, "CONFIG", sY)
+
+local cfgPath = "ProjectAstra_Config.json"
+
+local function CollectConfig()
+    return {
+        silentAimEnabled = silentAimEnabled,
+        silentAimFov = silentAimFov,
+        silentAimPart = silentAimPart,
+        silentAimTeamCheck = silentAimTeamCheck,
+        silentAimVisCheck = silentAimVisCheck,
+        bulletTracerEnabled = bulletTracerEnabled,
+        bulletTracerColor = {bulletTracerColor.R,bulletTracerColor.G,bulletTracerColor.B},
+        bulletMarkerEnabled = bulletMarkerEnabled,
+        bulletMarkerColor = {bulletMarkerColor.R,bulletMarkerColor.G,bulletMarkerColor.B},
+        hitSoundEnabled = hitSoundEnabled,
+        hitSoundId = hitSoundId,
+        hitSoundVolume = hitSoundVolume,
+        rapidFireEnabled = rapidFireEnabled,
+        rapidFireDelay = rapidFireDelay,
+        cameraFovEnabled = cameraFovEnabled,
+        cameraFovValue = cameraFovValue,
+        noFogEnabled = noFogEnabled,
+        fullbrightEnabled = fullbrightEnabled,
+        espEnabled = espEnabled,
+        espBox = espBox, espName = espName, espHealth = espHealth,
+        espDistance = espDistance, espWeapon = espWeapon,
+        espBoxColor = {espBoxColor.R,espBoxColor.G,espBoxColor.B},
+        espNameColor = {espNameColor.R,espNameColor.G,espNameColor.B},
+        espDistColor = {espDistColor.R,espDistColor.G,espDistColor.B},
+        espWeapColor = {espWeapColor.R,espWeapColor.G,espWeapColor.B},
+        customHandsEnabled = customHandsEnabled,
+        customHandsColor = {customHandsColor.R,customHandsColor.G,customHandsColor.B},
+        customHandsTransp = customHandsTransp,
+        skyboxEnabled = skyboxEnabled,
+        skyboxMode = skyboxMode,
+        speedHackEnabled = speedHackEnabled,
+        speedValue = speedValue,
+        infJumpEnabled = infJumpEnabled,
+        noJumpCooldown = noJumpCooldown,
+        bigJumpEnabled = bigJumpEnabled,
+        bigJumpPower = bigJumpPower,
+        noClipEnabled = noClipEnabled,
+        bhopEnabled = bhopEnabled,
+        flyEnabled = flyEnabled,
+        flySpeed = flySpeed,
+        gunChamsEnabled = gunChamsEnabled,
+        gunChamsColor = {gunChamsColor.R,gunChamsColor.G,gunChamsColor.B},
+        borderColor = {BORDER_COLOR.R,BORDER_COLOR.G,BORDER_COLOR.B},
+        accentColor = {ACCENT_COLOR.R,ACCENT_COLOR.G,ACCENT_COLOR.B},
+    }
+end
+
+local function ApplyConfig(cfg)
+    if not cfg then return end
+    silentAimEnabled = cfg.silentAimEnabled or silentAimEnabled
+    silentAimFov = cfg.silentAimFov or silentAimFov
+    silentAimPart = cfg.silentAimPart or silentAimPart
+    silentAimTeamCheck = cfg.silentAimTeamCheck or silentAimTeamCheck
+    silentAimVisCheck = cfg.silentAimVisCheck or silentAimVisCheck
+    bulletTracerEnabled = cfg.bulletTracerEnabled ~= nil and cfg.bulletTracerEnabled or bulletTracerEnabled
+    if cfg.bulletTracerColor then bulletTracerColor = Color3.new(unpack(cfg.bulletTracerColor)) end
+    bulletMarkerEnabled = cfg.bulletMarkerEnabled ~= nil and cfg.bulletMarkerEnabled or bulletMarkerEnabled
+    if cfg.bulletMarkerColor then bulletMarkerColor = Color3.new(unpack(cfg.bulletMarkerColor)) end
+    hitSoundEnabled = cfg.hitSoundEnabled or hitSoundEnabled
+    hitSoundId = cfg.hitSoundId or hitSoundId
+    hitSoundVolume = cfg.hitSoundVolume or hitSoundVolume
+    rapidFireEnabled = cfg.rapidFireEnabled or rapidFireEnabled
+    rapidFireDelay = cfg.rapidFireDelay or rapidFireDelay
+    cameraFovEnabled = cfg.cameraFovEnabled or cameraFovEnabled
+    cameraFovValue = cfg.cameraFovValue or cameraFovValue
+    noFogEnabled = cfg.noFogEnabled or noFogEnabled
+    fullbrightEnabled = cfg.fullbrightEnabled or fullbrightEnabled
+    espEnabled = cfg.espEnabled or espEnabled
+    espBox = cfg.espBox ~= nil and cfg.espBox or espBox
+    espName = cfg.espName ~= nil and cfg.espName or espName
+    espHealth = cfg.espHealth ~= nil and cfg.espHealth or espHealth
+    espDistance = cfg.espDistance ~= nil and cfg.espDistance or espDistance
+    espWeapon = cfg.espWeapon ~= nil and cfg.espWeapon or espWeapon
+    if cfg.espBoxColor then espBoxColor = Color3.new(unpack(cfg.espBoxColor)) end
+    if cfg.espNameColor then espNameColor = Color3.new(unpack(cfg.espNameColor)) end
+    if cfg.espDistColor then espDistColor = Color3.new(unpack(cfg.espDistColor)) end
+    if cfg.espWeapColor then espWeapColor = Color3.new(unpack(cfg.espWeapColor)) end
+    customHandsEnabled = cfg.customHandsEnabled or customHandsEnabled
+    if cfg.customHandsColor then customHandsColor = Color3.new(unpack(cfg.customHandsColor)) end
+    customHandsTransp = cfg.customHandsTransp or customHandsTransp
+    skyboxEnabled = cfg.skyboxEnabled or skyboxEnabled
+    skyboxMode = cfg.skyboxMode or skyboxMode
+    speedHackEnabled = cfg.speedHackEnabled or speedHackEnabled
+    speedValue = cfg.speedValue or speedValue
+    infJumpEnabled = cfg.infJumpEnabled or infJumpEnabled
+    noJumpCooldown = cfg.noJumpCooldown or noJumpCooldown
+    bigJumpEnabled = cfg.bigJumpEnabled or bigJumpEnabled
+    bigJumpPower = cfg.bigJumpPower or bigJumpPower
+    noClipEnabled = cfg.noClipEnabled or noClipEnabled
+    bhopEnabled = cfg.bhopEnabled or bhopEnabled
+    flyEnabled = cfg.flyEnabled or flyEnabled
+    flySpeed = cfg.flySpeed or flySpeed
+    gunChamsEnabled = cfg.gunChamsEnabled or gunChamsEnabled
+    if cfg.gunChamsColor then gunChamsColor = Color3.new(unpack(cfg.gunChamsColor)) end
+    if cfg.borderColor then SetBorderColor(Color3.new(unpack(cfg.borderColor))) end
+    if cfg.accentColor then SetAccentColor(Color3.new(unpack(cfg.accentColor))) end
+    if fullbrightEnabled then
+        Lighting.Brightness = 3; Lighting.ClockTime = 14; Lighting.GlobalShadows = false
+    end
+    if customHandsEnabled then SetupCustomHands() else RemoveCustomHands() end
+    if skyboxEnabled then ApplySkybox(skyboxMode) end
+end
+
+local saveBtn = Instance.new("TextButton")
+saveBtn.Position = UDim2.fromOffset(10,sY)
+saveBtn.Size = UDim2.new(1,-20,0,28)
+saveBtn.BackgroundColor3 = ACCENT_COLOR
+saveBtn.BorderSizePixel = 0
+saveBtn.Text = "Save Config (JSON)"
+saveBtn.TextColor3 = WHITE
+saveBtn.Font = Enum.Font.Code
+saveBtn.TextSize = 13
+saveBtn.AutoButtonColor = false
+saveBtn.Parent = SetScroll
+Stroke(saveBtn,1)
+RegisterAccent(saveBtn,"BackgroundColor3")
+saveBtn.MouseButton1Click:Connect(function()
+    pcall(function()
+        if writefile then
+            writefile(cfgPath, HttpService:JSONEncode(CollectConfig()))
+            print("[Astra] Config saved.")
+        else
+            warn("[Astra] writefile not available")
+        end
+    end)
+end)
+sY = sY + 32
+
+local loadBtn = Instance.new("TextButton")
+loadBtn.Position = UDim2.fromOffset(10,sY)
+loadBtn.Size = UDim2.new(1,-20,0,28)
+loadBtn.BackgroundColor3 = ACCENT_COLOR
+loadBtn.BorderSizePixel = 0
+loadBtn.Text = "Load Config (JSON)"
+loadBtn.TextColor3 = WHITE
+loadBtn.Font = Enum.Font.Code
+loadBtn.TextSize = 13
+loadBtn.AutoButtonColor = false
+loadBtn.Parent = SetScroll
+Stroke(loadBtn,1)
+RegisterAccent(loadBtn,"BackgroundColor3")
+loadBtn.MouseButton1Click:Connect(function()
+    pcall(function()
+        if isfile and isfile(cfgPath) then
+            local cfg = HttpService:JSONDecode(readfile(cfgPath))
+            ApplyConfig(cfg)
+            print("[Astra] Config loaded.")
+        else
+            warn("[Astra] No config file.")
+        end
+    end)
+end)
+sY = sY + 32
 
 --========================================================--
 -- TAB SWITCHING
@@ -1233,7 +1168,7 @@ end
 SelectTab(1)
 
 --========================================================--
--- SIDE PANEL (toggle / lock)
+-- SIDE PANEL
 --========================================================--
 
 local Side = Instance.new("Frame")
@@ -1467,10 +1402,8 @@ end)
 
 function ApplySkybox(name)
     if activeSky then activeSky:Destroy(); activeSky = nil end
-
     if name == "None" then return end
 
-    -- cleanup atmosphere
     for _,o in ipairs(Lighting:GetChildren()) do
         if o:IsA("Sky") then o:Destroy() end
     end
@@ -1493,12 +1426,9 @@ function ApplySkybox(name)
         Lighting.OutdoorAmbient = Color3.fromRGB(128,128,128)
         Lighting.ColorShift_Top = Color3.fromRGB(0,0,0)
     elseif name == "Epstein" then
-        s.SkyboxBk = "rbxassetid://159454299"
-        s.SkyboxDn = "rbxassetid://159454299"
-        s.SkyboxFt = "rbxassetid://159454299"
-        s.SkyboxLf = "rbxassetid://159454299"
-        s.SkyboxRt = "rbxassetid://159454299"
-        s.SkyboxUp = "rbxassetid://159454299"
+        local id = "rbxassetid://159454299"
+        s.SkyboxBk = id; s.SkyboxDn = id; s.SkyboxFt = id
+        s.SkyboxLf = id; s.SkyboxRt = id; s.SkyboxUp = id
     else
         local id = SKYBOXES[name]
         if id then
@@ -1512,13 +1442,12 @@ function ApplySkybox(name)
 end
 
 --========================================================--
--- SILENT AIM + DAMAGE-CHECKED HIT EFFECTS
+-- DAMAGE TRACKING
 --========================================================--
 
-local damageEvents = {} -- [player] = lastDamageTick
+local damageEvents = {}
 local DAMAGE_WINDOW = 0.35
 
--- перехватываем урон через Humanoid.HealthChanged
 local function watchHumanoid(plr)
     local function hook(char)
         local hum = char:WaitForChild("Humanoid", 5)
@@ -1543,14 +1472,19 @@ Players.PlayerAdded:Connect(function(p)
 end)
 
 local function wasDamagedRecently(plr)
+    if not plr then return false end
     local t = damageEvents[plr]
     return t and (tick() - t) <= DAMAGE_WINDOW
 end
 
--- Bullet Tracer
+--========================================================--
+-- BULLET EFFECTS
+--========================================================--
+
 local function CreateLaserTracer(from, to)
     if not bulletTracerEnabled then return end
     local dist = (to - from).Magnitude
+    if dist < 0.1 then return end
     local part = Instance.new("Part")
     part.Anchored = true
     part.CanCollide = false
@@ -1564,7 +1498,6 @@ local function CreateLaserTracer(from, to)
     end)
 end
 
--- Hit Marker
 local function CreateHitmarker(pos3D)
     if not bulletMarkerEnabled then return end
     local vp, onScreen = Camera:WorldToViewportPoint(pos3D)
@@ -1580,19 +1513,16 @@ local function CreateHitmarker(pos3D)
     for i=1,4 do
         local line = Instance.new("Frame")
         line.AnchorPoint = Vector2.new(0.5,0.5)
-        line.Position = UDim2.fromScale(0.5,0.5)
         line.Size = UDim2.fromOffset(2, bulletMarkerSize)
         line.BackgroundColor3 = bulletMarkerColor
         line.BorderSizePixel = 0
-        line.Rotation = (i-1)*90
-        line.Parent = marker
-
         local offset = 8
         if i == 1 then line.Position = UDim2.new(0.5,0,0.5,-offset)
         elseif i == 2 then line.Position = UDim2.new(0.5,offset,0.5,0); line.Rotation = 90
         elseif i == 3 then line.Position = UDim2.new(0.5,0,0.5,offset)
         elseif i == 4 then line.Position = UDim2.new(0.5,-offset,0.5,0); line.Rotation = 90
         end
+        line.Parent = marker
     end
 
     task.delay(0.35, function()
@@ -1600,7 +1530,6 @@ local function CreateHitmarker(pos3D)
     end)
 end
 
--- Hit Sound
 local function PlayHitSound()
     if not hitSoundEnabled then return end
     local s = Instance.new("Sound")
@@ -1611,7 +1540,10 @@ local function PlayHitSound()
     task.delay(2, function() if s then s:Destroy() end end)
 end
 
--- getTarget (silent aim)
+--========================================================--
+-- SILENT AIM target finder
+--========================================================--
+
 local function getSilentTarget()
     local best, bd = nil, silentAimFov
     local vp = Camera.ViewportSize
@@ -1641,28 +1573,53 @@ local function getSilentTarget()
     return best
 end
 
--- redirect mouse hit (silent aim на выстреле)
-local mt = getmetatable(LP:GetMouse())
-local oldIndex = mt.__index
-mt.__index = newproxy(true)
-getmetatable(mt.__index).__index = function(self, k)
-    if k == "Hit" and silentAimEnabled then
-        local t = getSilentTarget()
-        if t then return t end
-    end
-    return oldIndex(self, k)
+--========================================================--
+-- SILENT AIM hook через hookmetamethod (Delta-safe)
+--========================================================--
+
+local mt = getrawmetatable(game)
+if mt then
+    local oldNamecall = mt.__namecall
+    setreadonly(mt, false)
+    mt.__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        local args = {...}
+
+        if silentAimEnabled and (method == "FireServer" or method == "InvokeServer") then
+            local target = getSilentTarget()
+            if target then
+                -- подменяем позицию на цель
+                for i,v in ipairs(args) do
+                    if typeof(v) == "Vector3" then
+                        args[i] = target.Position
+                    elseif typeof(v) == "CFrame" then
+                        args[i] = CFrame.new(target.Position)
+                    end
+                end
+            end
+        end
+
+        return oldNamecall(self, unpack(args))
+    end)
+    setreadonly(mt, true)
 end
 
--- rapid fire через mouse1
+--========================================================--
+-- RAPID FIRE + HIT EFFECTS
+--========================================================--
+
 UIS.InputBegan:Connect(function(i, gpe)
     if gpe then return end
-    if i.UserInputType == Enum.UserInputType.MouseButton1 and rapidFireEnabled then
+    if i.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+
+    if rapidFireEnabled then
         task.spawn(function()
             while rapidFireEnabled and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
                 local t = silentAimEnabled and getSilentTarget() or nil
                 if t then
                     CreateLaserTracer(Camera.CFrame.Position, t.Position)
-                    if wasDamagedRecently(Players:GetPlayerFromCharacter(t.Parent)) then
+                    local plr = Players:GetPlayerFromCharacter(t.Parent)
+                    if plr and wasDamagedRecently(plr) then
                         CreateHitmarker(t.Position)
                         PlayHitSound()
                     end
@@ -1670,13 +1627,7 @@ UIS.InputBegan:Connect(function(i, gpe)
                 task.wait(rapidFireDelay)
             end
         end)
-    end
-end)
-
--- обычный клик — тоже проверяем урон
-UIS.InputBegan:Connect(function(i, gpe)
-    if gpe then return end
-    if i.UserInputType == Enum.UserInputType.MouseButton1 and not rapidFireEnabled then
+    else
         task.wait(0.02)
         local t = silentAimEnabled and getSilentTarget() or nil
         if t then
@@ -1691,7 +1642,7 @@ UIS.InputBegan:Connect(function(i, gpe)
 end)
 
 --========================================================--
--- ESP (Drawing)
+-- ESP
 --========================================================--
 
 local function createESP(player)
@@ -1809,26 +1760,19 @@ RS.RenderStepped:Connect(function()
 end)
 
 --========================================================--
--- MOVEMENT / FOV / FOG / GUN CHAMS / FREEZE / FLY
+-- MAIN LOOP: FOV / FOG / FULLBRIGHT / MOVEMENT / GUN CHAMS
 --========================================================--
 
-RS.Heartbeat:Connect(function()
-    -- FOV
-    if cameraFovEnabled then
-        if Camera.FieldOfView ~= cameraFovValue then
-            Camera.FieldOfView = cameraFovValue
-        end
-    end
+local wasInAirBhop = false
 
-    -- No Fog
-    if noFogEnabled then
-        if Lighting.FogEnd ~= 1e6 then
-            Lighting.FogEnd = 1e6
-            Lighting.FogStart = 1e5
-        end
+RS.Heartbeat:Connect(function(dt)
+    if cameraFovEnabled and Camera.FieldOfView ~= cameraFovValue then
+        Camera.FieldOfView = cameraFovValue
     end
-
-    -- Fullbright instant
+    if noFogEnabled and Lighting.FogEnd ~= 1e6 then
+        Lighting.FogEnd = 1e6
+        Lighting.FogStart = 1e5
+    end
     if fullbrightEnabled then
         if Lighting.Brightness ~= 3 then Lighting.Brightness = 3 end
         if Lighting.ClockTime ~= 14 then Lighting.ClockTime = 14 end
@@ -1841,25 +1785,21 @@ RS.Heartbeat:Connect(function()
     local hum  = char:FindFirstChildOfClass("Humanoid")
     if not root or not hum then return end
 
-    -- No Clip
     if noClipEnabled then
         for _,p in ipairs(char:GetDescendants()) do
             if p:IsA("BasePart") then p.CanCollide = false end
         end
     end
 
-    -- Speed
     if speedHackEnabled and hum.WalkSpeed ~= speedValue then
         hum.WalkSpeed = speedValue
     end
 
-    -- Big Jump
     if bigJumpEnabled then
         hum.UseJumpPower = true
         if hum.JumpPower ~= bigJumpPower then hum.JumpPower = bigJumpPower end
     end
 
-    -- Fly
     if flyEnabled then
         local dir = Vector3.zero
         if UIS:IsKeyDown(Enum.KeyCode.W) then dir += Camera.CFrame.LookVector end
@@ -1868,33 +1808,34 @@ RS.Heartbeat:Connect(function()
         if UIS:IsKeyDown(Enum.KeyCode.D) then dir += Camera.CFrame.RightVector end
         if UIS:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.new(0,1,0) end
         if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir -= Vector3.new(0,1,0) end
-
         root.Velocity = dir.Magnitude > 0 and dir.Unit * flySpeed or Vector3.zero
         hum.PlatformStand = true
-    elseif not flyEnabled and hum.PlatformStand and not freezeEnabled then
+    elseif hum.PlatformStand and not freezeEnabled then
         hum.PlatformStand = false
     end
 
-    -- Freeze
-    if freezeEnabled then
-        local key = keybinds.Freeze
-        if UIS:IsKeyDown(key) then
-            if not freezeTargetCF then
-                freezeTargetCF = root.CFrame * CFrame.new(0,50,0)
-            end
-            root.CFrame = freezeTargetCF
-            root.Velocity = Vector3.zero
-            root.RotVelocity = Vector3.zero
-            hum.PlatformStand = true
-        else
-            if freezeTargetCF then
-                freezeTargetCF = nil
-                hum.PlatformStand = false
-            end
+    if freezeEnabled and UIS:IsKeyDown(keybinds.Freeze) then
+        if not freezeTargetCF then
+            freezeTargetCF = root.CFrame * CFrame.new(0,50,0)
         end
+        root.CFrame = freezeTargetCF
+        root.Velocity = Vector3.zero
+        root.RotVelocity = Vector3.zero
+        hum.PlatformStand = true
+    elseif freezeTargetCF then
+        freezeTargetCF = nil
+        hum.PlatformStand = false
     end
 
-    -- Gun chams
+    if bhopEnabled then
+        local state = hum:GetState()
+        local inAir = state == Enum.HumanoidStateType.Freefall or state == Enum.HumanoidStateType.Jumping
+        if not inAir and wasInAirBhop then
+            hum.Jump = true
+        end
+        wasInAirBhop = inAir
+    end
+
     if gunChamsEnabled then
         for _,tool in ipairs(char:GetChildren()) do
             if tool:IsA("Tool") then
@@ -1902,7 +1843,6 @@ RS.Heartbeat:Connect(function()
                     if p:IsA("BasePart") then
                         p.Color = gunChamsColor
                         p.Material = Enum.Material.Neon
-                        p.Transparency = 0.3
                     end
                 end
             end
@@ -1911,7 +1851,7 @@ RS.Heartbeat:Connect(function()
 end)
 
 --========================================================--
--- JUMP HANDLERS
+-- JUMP
 --========================================================--
 
 UIS.JumpRequest:Connect(function()
@@ -1919,12 +1859,8 @@ UIS.JumpRequest:Connect(function()
     if not char then return end
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hum then return end
-
     if infJumpEnabled then
         hum:ChangeState(Enum.HumanoidStateType.Jumping)
-    end
-    if noJumpCooldown then
-        hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
     end
 end)
 
@@ -1958,7 +1894,6 @@ function CreateFreezeButton()
     local uc = Instance.new("UICorner",freezeBtn)
     uc.CornerRadius = UDim.new(0,6)
 
-    -- drag
     local dragging, dragInput, dragStart, startPos
     freezeBtn.InputBegan:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
@@ -2011,15 +1946,13 @@ function DestroyFreezeButton()
 end
 
 --========================================================--
--- INITIAL STATE
+-- INIT
 --========================================================--
 
 SetBorderColor(Color3.fromRGB(255,25,25))
 SetAccentColor(Color3.fromRGB(255,25,25))
 LoadColor(ACCENT_COLOR)
 
-task.defer(function()
-    CenterMain()
-end)
+task.defer(function() CenterMain() end)
 
-print("Project Astra | t.me/epsteinhub loaded")
+print("[Astra] Project Astra | t.me/epsteinhub loaded OK")
