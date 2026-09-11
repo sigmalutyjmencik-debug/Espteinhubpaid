@@ -1,6 +1,7 @@
 --========================================================--
 -- PROJECT ASTRA | t.me/epsteinhub
 -- Combat: EpsteinHub V2 core | UI: Nyxon base
+-- Full-safe build
 --========================================================--
 
 local UIS = game:GetService("UserInputService")
@@ -20,7 +21,7 @@ local Camera = workspace.CurrentCamera
 local ok_cg, CoreGui = pcall(function() return game:GetService("CoreGui") end)
 if not ok_cg then CoreGui = LP:WaitForChild("PlayerGui") end
 
-for _, n in ipairs({"NyxonProject","ProjectAstra","EpsteinHub","EpsteinHubV2","EpsteinMobile","EpsteinStats","Epstein_Teleport","NoclipButton","FurryDropButton","FOV_Indicator","EpsteinFOV","AstraFreezeUI","AstraTPButton","AstraAirWalkButton"}) do
+for _, n in ipairs({"NyxonProject","ProjectAstra","EpsteinHub","EpsteinHubV2","EpsteinMobile","EpsteinStats","Epstein_Teleport","NoclipButton","FurryDropButton","FOV_Indicator","EpsteinFOV","AstraFreezeUI","AstraTPButton","AstraAirWalkButton","AstraFOV"}) do
     pcall(function()
         local g = CoreGui:FindFirstChild(n)
         if g then g:Destroy() end
@@ -58,7 +59,6 @@ local ACCENT_COLOR = Color3.fromRGB(255,25,25)
 -- STATE
 --========================================================--
 
--- Silent Aim
 local silentAimEnabled   = false
 local silentAimFov       = 200
 local silentAimPart      = "Head"
@@ -70,40 +70,32 @@ local silentAimSnapline  = false
 local silentAimFovColor  = Color3.fromRGB(150,50,220)
 local silentAimSnaplineColor = Color3.fromRGB(255,0,255)
 
--- Bullet Tracer
 local bulletTracerEnabled = false
 local bulletTracerType    = "Red Laser"
 local bulletTracerLife    = 3
 
--- Hit Sound
 local hitSoundEnabled = false
 local hitSoundId      = "121566025787365"
 local hitSoundVolume  = 1
 local hitSoundObj     = nil
 
--- Hit Marker
 local hitMarkerEnabled = true
 local hitMarkerColor   = Color3.fromRGB(255,255,255)
 local hitMarkerSize    = 8
 
--- Damage tracking
 local damageEvents = {}
 local DAMAGE_WINDOW = 0.35
 
--- Jump Shot
 local jumpShotEnabled = false
 
--- Rapid Fire
 local rapidFireEnabled = false
 local rapidFireValue   = 10000000
 
--- Camera
 local cameraFovEnabled = false
 local cameraFovValue   = 90
 local noFogEnabled     = false
 local fullbrightEnabled = false
 
--- ESP
 local espEnabled   = false
 local espBox       = true
 local espName      = true
@@ -116,13 +108,11 @@ local espDistColor = Color3.fromRGB(255,255,255)
 local espWeapColor = Color3.fromRGB(255,200,0)
 local espCache     = {}
 
--- Custom Hands
 local customHandsEnabled = false
 local customHandsColor   = Color3.fromRGB(160,32,240)
 local customHandsTransp  = 0.55
 local activeLockedArms   = {}
 
--- Skybox
 local skyboxEnabled = false
 local skyboxMode    = "None"
 local activeSky     = nil
@@ -135,7 +125,6 @@ local SKYBOXES = {
     Space           = "rbxassetid://85646454",
 }
 
--- Movement
 local speedHackEnabled = false
 local speedValue       = 50
 local infJumpEnabled   = false
@@ -147,7 +136,6 @@ local bhopEnabled      = false
 local flyEnabled       = false
 local flySpeed         = 50
 
--- Freeze / TP / Air Walk
 local freezeEnabled  = false
 local freezeTargetCF = nil
 local tpDistance     = 100
@@ -157,11 +145,9 @@ local airWalkHeight   = 100
 local airWalkKey      = Enum.KeyCode.V
 local airWalkBusy     = false
 
--- Gun Chams
 local gunChamsEnabled = false
 local gunChamsColor   = Color3.fromRGB(255,80,255)
 
--- Whitelist
 local whitelistEnabled = false
 local whitelist = {}
 
@@ -479,7 +465,7 @@ local function Checkbox(parent, label, default, callback, yPos)
     box.MouseButton1Click:Connect(function()
         state = not state
         fill.Visible = state
-        if callback then callback(state) end
+        if callback then pcall(callback, state) end
     end)
     return container
 end
@@ -528,7 +514,7 @@ local function Slider(parent, label, minV, maxV, default, callback, yPos, suffix
         fill.Size = UDim2.new(r,0,1,0)
         local v = math.floor(minV + (maxV-minV)*r + 0.5)
         valLabel.Text = tostring(v)..suffix
-        if callback then callback(v) end
+        if callback then pcall(callback, v) end
     end
 
     btn.InputBegan:Connect(function(i)
@@ -613,7 +599,7 @@ local function Dropdown(parent, label, options, default, callback, yPos)
         ob.MouseButton1Click:Connect(function()
             selText.Text = opt
             menu.Visible = false
-            if callback then callback(opt) end
+            if callback then pcall(callback, opt) end
         end)
     end
 
@@ -1646,9 +1632,10 @@ function ApplyJumpShot()
     end
     pcall(function()
         for _, v in pairs(getgc(true)) do
-            if type(v) == "table" and rawget(v, "canShoot") and not jumpShotPatched[v] then
-                local orig = v.canShoot
-                if type(orig) == "function" then
+            if type(v) == "table" then
+                local ok, canShoot = pcall(function() return rawget(v, "canShoot") end)
+                if ok and canShoot and type(canShoot) == "function" and not jumpShotPatched[v] then
+                    local orig = canShoot
                     jumpShotPatched[v] = true
                     v.canShoot = function(...)
                         if jumpShotEnabled then
@@ -1676,24 +1663,29 @@ end)
 --========================================================--
 
 if hookmetamethod then
-    local oldNamecall
-    oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-        local method = getnamecallmethod()
-        if method == "FireServer" or method == "InvokeServer" then
-            if self and self.Name and (self.Name == "BulletHit" or self.Name == "HitShot") then
-                if hitSoundEnabled and hitSoundObj then
-                    task.spawn(function()
-                        pcall(function() hitSoundObj:Play() end)
-                    end)
+    local ok_hook, err_hook = pcall(function()
+        local oldNamecall
+        oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+            local method = getnamecallmethod()
+            if method == "FireServer" or method == "InvokeServer" then
+                if self and self.Name and (self.Name == "BulletHit" or self.Name == "HitShot") then
+                    if hitSoundEnabled and hitSoundObj then
+                        task.spawn(function()
+                            pcall(function() hitSoundObj:Play() end)
+                        end)
+                    end
                 end
             end
-        end
-        return oldNamecall(self, ...)
+            return oldNamecall(self, ...)
+        end)
     end)
+    if not ok_hook then
+        warn("[Astra] Hit sound hook failed: "..tostring(err_hook))
+    end
 end
 
 --========================================================--
--- SILENT AIM via hookfunction(castRays)
+-- SILENT AIM via hookfunction(castRays) — безопасно
 --========================================================--
 
 local castRaysFunc = nil
@@ -1715,72 +1707,83 @@ do
 end
 
 if castRaysFunc and hookfunction then
-    local original
-    original = hookfunction(castRaysFunc, function(plr, origin, dirs, ...)
-        if plr == LP and silentAimEnabled and type(dirs) == "table" then
-            for k in pairs(dirs) do
-                dirs[k] = Vector3.new(0,0,-1)
-            end
-        end
-
-        local result = original(plr, origin, dirs, ...)
-
-        if plr == LP then
-            local target = getSilentTarget()
-            if target then
-                if bulletTracerEnabled then
-                    CreateTracer(origin, target.Position)
+    local ok_hook, err_hook = pcall(function()
+        local original
+        original = hookfunction(castRaysFunc, function(plr, origin, dirs, ...)
+            if plr == LP and silentAimEnabled and type(dirs) == "table" then
+                for k in pairs(dirs) do
+                    dirs[k] = Vector3.new(0,0,-1)
                 end
+            end
 
-                if silentAimHitChance/100 > math.random() then
-                    if type(result) == "table" then
-                        if result.position then
-                            result.position = target.Position
-                            result.instance = target
-                            if target.Parent then
-                                result.taggedHumanoid = target.Parent:FindFirstChildOfClass("Humanoid")
-                            end
-                        elseif result[1] and type(result[1]) == "table" then
-                            result[1].position = target.Position
-                            result[1].instance = target
-                            if target.Parent then
-                                result[1].taggedHumanoid = target.Parent:FindFirstChildOfClass("Humanoid")
-                            end
-                        end
+            local result = original(plr, origin, dirs, ...)
+
+            if plr == LP then
+                local target = getSilentTarget()
+                if target then
+                    if bulletTracerEnabled then
+                        pcall(function() CreateTracer(origin, target.Position) end)
                     end
 
-                    -- Hit marker / sound только если цель реально получила урон
-                    task.spawn(function()
-                        local plrTarget = target.Parent and Players:GetPlayerFromCharacter(target.Parent)
-                        task.wait(0.05)
-                        if plrTarget and wasDamagedRecently(plrTarget) then
-                            CreateHitmarker(target.Position)
-                            if hitSoundEnabled and hitSoundObj then
-                                pcall(function() hitSoundObj:Play() end)
-                            end
-                        else
-                            -- fallback: показать hitmarker без проверки урона (для не-игроков)
-                            if not plrTarget then
-                                CreateHitmarker(target.Position)
+                    if silentAimHitChance/100 > math.random() then
+                        if type(result) == "table" then
+                            if result.position then
+                                result.position = target.Position
+                                result.instance = target
+                                if target.Parent then
+                                    result.taggedHumanoid = target.Parent:FindFirstChildOfClass("Humanoid")
+                                end
+                            elseif result[1] and type(result[1]) == "table" then
+                                result[1].position = target.Position
+                                result[1].instance = target
+                                if target.Parent then
+                                    result[1].taggedHumanoid = target.Parent:FindFirstChildOfClass("Humanoid")
+                                end
                             end
                         end
-                    end)
 
-                    return result
-                end
-            else
-                if bulletTracerEnabled and type(result) == "table" then
-                    local pos
-                    if result.position then pos = result.position
-                    elseif result[1] and result[1].position then pos = result[1].position end
-                    if pos then CreateTracer(origin, pos) end
+                        local targetPos = target.Position
+                        local targetChar = target.Parent
+                        task.spawn(function()
+                            task.wait(0.05)
+                            local plrTarget = nil
+                            pcall(function()
+                                if targetChar then
+                                    plrTarget = Players:GetPlayerFromCharacter(targetChar)
+                                end
+                            end)
+                            if plrTarget then
+                                if wasDamagedRecently(plrTarget) then
+                                    pcall(function() CreateHitmarker(targetPos) end)
+                                    if hitSoundEnabled and hitSoundObj then
+                                        pcall(function() hitSoundObj:Play() end)
+                                    end
+                                end
+                            else
+                                pcall(function() CreateHitmarker(targetPos) end)
+                            end
+                        end)
+
+                        return result
+                    end
+                else
+                    if bulletTracerEnabled and type(result) == "table" then
+                        local pos
+                        if result.position then pos = result.position
+                        elseif result[1] and result[1].position then pos = result[1].position end
+                        if pos then pcall(function() CreateTracer(origin, pos) end) end
+                    end
                 end
             end
-        end
 
-        return result
+            return result
+        end)
     end)
-    print("[Astra] Silent aim hooked")
+    if ok_hook then
+        print("[Astra] Silent aim hooked")
+    else
+        warn("[Astra] Silent aim hook failed: "..tostring(err_hook))
+    end
 else
     warn("[Astra] castRays не найден или hookfunction недоступен")
 end
