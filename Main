@@ -1,5 +1,8 @@
--- Project Astra v12.1 | t.me/epsteinhub
+-- Project Astra v13 | t.me/epsteinhub
 
+-- ============================================================
+-- ЭТАП 1: БАЗА (создаёт GUI сразу, до всего остального)
+-- ============================================================
 local UIS = game:GetService("UserInputService")
 local RS = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -10,17 +13,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LP = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
-
 local GUI_PARENT = game:GetService("CoreGui")
 
-do
-    local names = {"ProjectAstra","AstraFOV","AstraFreezeUI","AstraTPButton","AstraAirWalkButton"}
-    for i = 1, #names do
-        pcall(function()
-            local a = GUI_PARENT:FindFirstChild(names[i])
-            if a then a:Destroy() end
-        end)
-    end
+-- Уборка старых
+for _, n in ipairs({"ProjectAstra","AstraFOV","AstraFreezeUI","AstraTPButton","AstraAirWalkButton"}) do
+    local old = GUI_PARENT:FindFirstChild(n)
+    if old then old:Destroy() end
 end
 
 local BG = Color3.fromRGB(20,20,24)
@@ -32,7 +30,252 @@ local WHITE = Color3.fromRGB(235,235,235)
 local GRAY = Color3.fromRGB(145,145,150)
 local ACCENT = Color3.fromRGB(255,25,120)
 
--- COMBAT STATE
+-- ============================================================
+-- СОЗДАЁМ ГЛАВНЫЙ GUI СРАЗУ
+-- ============================================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ProjectAstra"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = GUI_PARENT
+
+local Main = Instance.new("Frame")
+Main.Name = "Main"
+Main.Size = UDim2.fromOffset(944,593)
+Main.BackgroundColor3 = BG
+Main.BorderSizePixel = 0
+Main.ClipsDescendants = true
+Main.Parent = ScreenGui
+
+local MainScale = Instance.new("UIScale")
+MainScale.Scale = 0.55
+MainScale.Parent = Main
+
+local function CenterMain()
+    local vp = Camera.ViewportSize
+    local scale = MainScale.Scale
+    local w = Main.Size.X.Offset * scale
+    local h = Main.Size.Y.Offset * scale
+    Main.Position = UDim2.fromOffset((vp.X-w)/2,(vp.Y-h)/2)
+end
+CenterMain()
+
+local Stroke = function(parent, thickness)
+    local s = Instance.new("UIStroke")
+    s.Color = ACCENT
+    s.Thickness = thickness or 1
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    s.Parent = parent
+    return s
+end
+Stroke(Main, 1.5)
+
+local MakeText = function(parent, value, pos, size, ts, col)
+    local l = Instance.new("TextLabel")
+    l.Position = pos
+    l.Size = size
+    l.BackgroundTransparency = 1
+    l.BorderSizePixel = 0
+    l.Text = value
+    l.TextColor3 = col or WHITE
+    l.Font = Enum.Font.Code
+    l.TextSize = ts or 13
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.TextYAlignment = Enum.TextYAlignment.Center
+    l.Parent = parent
+    return l
+end
+
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1,0,0,41)
+TitleBar.BackgroundColor3 = Color3.fromRGB(30,20,35)
+TitleBar.BorderSizePixel = 0
+TitleBar.ClipsDescendants = true
+TitleBar.Parent = Main
+
+local TitleGradient = Instance.new("UIGradient", TitleBar)
+TitleGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(60,20,80)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(120,30,120)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(40,15,60)),
+})
+
+MakeText(TitleBar, "Project Astra  |  t.me/epsteinhub", UDim2.fromOffset(12,0), UDim2.new(1,-24,1,0), 14, WHITE)
+
+local SepLine = Instance.new("Frame")
+SepLine.Position = UDim2.new(0,0,0,41)
+SepLine.Size = UDim2.new(1,0,0,1)
+SepLine.BackgroundColor3 = ACCENT
+SepLine.BorderSizePixel = 0
+SepLine.Parent = Main
+
+local Tabs = Instance.new("Frame")
+Tabs.Position = UDim2.fromOffset(0,42)
+Tabs.Size = UDim2.new(1,0,0,40)
+Tabs.BackgroundColor3 = BG
+Tabs.BorderSizePixel = 0
+Tabs.Parent = Main
+
+local TabNames = { "Combat", "Visuals", "Misc", "Settings" }
+local TabButtons = {}
+
+for i,name in ipairs(TabNames) do
+    local b = Instance.new("TextButton")
+    b.Position = UDim2.new((i-1)*0.25,0,0,0)
+    b.Size = UDim2.new(0.25,0,1,0)
+    b.BackgroundTransparency = 1
+    b.BorderSizePixel = 0
+    b.Text = name
+    b.TextColor3 = i==1 and WHITE or GRAY
+    b.Font = Enum.Font.Code
+    b.TextSize = 14
+    b.AutoButtonColor = false
+    b.Parent = Tabs
+    TabButtons[i] = b
+end
+
+local SepLine2 = Instance.new("Frame")
+SepLine2.Position = UDim2.new(0,0,0,82)
+SepLine2.Size = UDim2.new(1,0,0,1)
+SepLine2.BackgroundColor3 = ACCENT
+SepLine2.BorderSizePixel = 0
+SepLine2.Parent = Main
+
+local Pages = {}
+local Scrolls = {}
+
+for i,name in ipairs(TabNames) do
+    local page = Instance.new("Frame")
+    page.Name = name
+    page.Position = UDim2.fromOffset(0,83)
+    page.Size = UDim2.new(1,0,1,-83)
+    page.BackgroundTransparency = 1
+    page.BorderSizePixel = 0
+    page.Visible = (i==1)
+    page.Parent = Main
+
+    local scroll = Instance.new("ScrollingFrame")
+    scroll.Name = "Scroll"
+    scroll.Size = UDim2.fromScale(1,1)
+    scroll.BackgroundTransparency = 1
+    scroll.BorderSizePixel = 0
+    scroll.ScrollBarThickness = 3
+    scroll.ScrollBarImageColor3 = ACCENT
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scroll.CanvasSize = UDim2.new()
+    scroll.Parent = page
+
+    local layout = Instance.new("UIListLayout",scroll)
+    layout.Padding = UDim.new(0,4)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+
+    local pad = Instance.new("UIPadding",scroll)
+    pad.PaddingTop = UDim.new(0,8)
+    pad.PaddingLeft = UDim.new(0,8)
+    pad.PaddingRight = UDim.new(0,8)
+    pad.PaddingBottom = UDim.new(0,8)
+
+    Pages[i] = page
+    Scrolls[i] = scroll
+end
+
+-- Side panel (Toggle UI / Lock UI)
+local Side = Instance.new("Frame")
+Side.Size = UDim2.fromOffset(161,87)
+Side.Position = UDim2.fromOffset(68,185)
+Side.BackgroundColor3 = BG
+Side.BorderSizePixel = 0
+Side.Parent = ScreenGui
+local SideScale = Instance.new("UIScale")
+SideScale.Scale = 0.55
+SideScale.Parent = Side
+Stroke(Side,1)
+
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Size = UDim2.new(1,0,0,43)
+ToggleButton.BackgroundTransparency = 1
+ToggleButton.BorderSizePixel = 0
+ToggleButton.Text = "Toggle UI"
+ToggleButton.TextColor3 = WHITE
+ToggleButton.Font = Enum.Font.Code
+ToggleButton.TextSize = 14
+ToggleButton.AutoButtonColor = false
+ToggleButton.Parent = Side
+
+local SideSep = Instance.new("Frame")
+SideSep.Position = UDim2.fromOffset(0,43)
+SideSep.Size = UDim2.new(1,0,0,1)
+SideSep.BackgroundColor3 = ACCENT
+SideSep.BorderSizePixel = 0
+SideSep.Parent = Side
+
+local LockButton = Instance.new("TextButton")
+LockButton.Position = UDim2.fromOffset(0,44)
+LockButton.Size = UDim2.new(1,0,0,43)
+LockButton.BackgroundTransparency = 1
+LockButton.BorderSizePixel = 0
+LockButton.Text = "Lock UI"
+LockButton.TextColor3 = WHITE
+LockButton.Font = Enum.Font.Code
+LockButton.TextSize = 14
+LockButton.AutoButtonColor = false
+LockButton.Parent = Side
+
+local MainVisible = true
+ToggleButton.MouseButton1Click:Connect(function()
+    MainVisible = not MainVisible
+    Main.Visible = MainVisible
+end)
+
+local Locked = false
+LockButton.MouseButton1Click:Connect(function()
+    Locked = not Locked
+    LockButton.Text = Locked and "Unlock UI" or "Lock UI"
+end)
+
+-- Drag
+local dragging = false
+local dragStart, startPos
+TitleBar.InputBegan:Connect(function(i)
+    if Locked then return end
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = i.Position
+        startPos = Main.Position
+    end
+end)
+UIS.InputChanged:Connect(function(i)
+    if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+        local d = i.Position - dragStart
+        Main.Position = UDim2.fromOffset(startPos.X.Offset + d.X, startPos.Y.Offset + d.Y)
+    end
+end)
+UIS.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+-- Tab switching
+local function SelectTab(index)
+    for i,page in ipairs(Pages) do
+        page.Visible = (i == index)
+    end
+    for i,btn in ipairs(TabButtons) do
+        btn.TextColor3 = i == index and WHITE or GRAY
+    end
+end
+for i,btn in ipairs(TabButtons) do
+    btn.MouseButton1Click:Connect(function() SelectTab(i) end)
+end
+SelectTab(1)
+
+-- ============================================================
+-- ЭТАП 2: ВСЯ ЛОГИКА (после GUI)
+-- ============================================================
+
+-- STATE
 local SILENT_AIM = false
 local HIT_CHANCE = 95
 local HIT_PART = "Head"
@@ -51,28 +294,14 @@ local HIT_SOUND_VOL = 1
 
 local silentAimFovColor = Color3.fromRGB(255,80,180)
 local silentAimSnaplineColor = Color3.fromRGB(255,0,255)
-
 local hitMarkerEnabled = true
 local hitMarkerColor = Color3.fromRGB(255,0,0)
 local hitMarkerSize = 9
 local hitMarkerGap = 4
 local hitMarkerDuration = 0.35
 local ActiveHitmarkers = {}
-
 local JUMP_SHOT = false
 
--- WEAPON STATE
-local instantHitEnabled = false
-local noRecoilEnabled = false
-local noSpreadEnabled = false
-local instantReloadEnabled = false
-local autoReloadEnabled = false
-local noEquipDelayEnabled = false
-local bulletSpeedValue = 5000
-local fullAutoEnabled = false
-local lastReloadTime = 0
-
--- VISUAL STATE
 local cameraFovEnabled = false
 local cameraFovValue = 120
 local noFogEnabled = false
@@ -121,7 +350,6 @@ local SKYBOXES = {
     ["Ethereal Aura"] = "rbxassetid://97041568674250",
 }
 
--- MOVEMENT
 local speedHackEnabled = false
 local speedValue = 50
 local infJumpEnabled = false
@@ -151,233 +379,7 @@ local keybinds = {
     Freeze = Enum.KeyCode.X,
 }
 
--- GUI
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ProjectAstra"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.IgnoreGuiInset = true
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = GUI_PARENT
-
-local function Stroke(parent, thickness)
-    local s = Instance.new("UIStroke")
-    s.Color = ACCENT
-    s.Thickness = thickness or 1
-    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    s.Parent = parent
-    return s
-end
-
-local function MakeText(parent, value, pos, size, ts, col)
-    local l = Instance.new("TextLabel")
-    l.Position = pos
-    l.Size = size
-    l.BackgroundTransparency = 1
-    l.BorderSizePixel = 0
-    l.Text = value
-    l.TextColor3 = col or WHITE
-    l.Font = Enum.Font.Code
-    l.TextSize = ts or 13
-    l.TextXAlignment = Enum.TextXAlignment.Left
-    l.TextYAlignment = Enum.TextYAlignment.Center
-    l.Parent = parent
-    return l
-end
-
-local function MakeLine(parent, y)
-    local l = Instance.new("Frame")
-    l.Position = UDim2.new(0,0,0,y)
-    l.Size = UDim2.new(1,0,0,1)
-    l.BackgroundColor3 = ACCENT
-    l.BorderSizePixel = 0
-    l.Parent = parent
-    return l
-end
-
--- COLOR PICKER
-local Picker = Instance.new("Frame")
-Picker.Size = UDim2.fromOffset(290,278)
-Picker.BackgroundColor3 = PANEL
-Picker.BorderSizePixel = 0
-Picker.Visible = false
-Picker.ZIndex = 500
-Picker.Parent = ScreenGui
-local PickerScale = Instance.new("UIScale")
-PickerScale.Scale = 0.55
-PickerScale.Parent = Picker
-Stroke(Picker,1)
-MakeText(Picker,"Color Picker",UDim2.fromOffset(10,5),UDim2.fromOffset(260,24),13,WHITE).ZIndex = 501
-
-local Palette = Instance.new("Frame")
-Palette.Position = UDim2.fromOffset(10,34)
-Palette.Size = UDim2.fromOffset(220,175)
-Palette.BackgroundColor3 = Color3.fromHSV(0,1,1)
-Palette.BorderSizePixel = 0
-Palette.ZIndex = 501
-Palette.Parent = Picker
-Instance.new("UICorner",Palette).CornerRadius = UDim.new(0,3)
-
-local WhiteLayer = Instance.new("Frame")
-WhiteLayer.Size = UDim2.fromScale(1,1)
-WhiteLayer.BackgroundColor3 = Color3.new(1,1,1)
-WhiteLayer.BorderSizePixel = 0
-WhiteLayer.ZIndex = 502
-WhiteLayer.Parent = Palette
-local WG = Instance.new("UIGradient",WhiteLayer)
-WG.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,0),NumberSequenceKeypoint.new(1,1)})
-
-local BlackLayer = Instance.new("Frame")
-BlackLayer.Size = UDim2.fromScale(1,1)
-BlackLayer.BackgroundColor3 = Color3.new(0,0,0)
-BlackLayer.BorderSizePixel = 0
-BlackLayer.ZIndex = 503
-BlackLayer.Parent = Palette
-local BG2 = Instance.new("UIGradient",BlackLayer)
-BG2.Rotation = 90
-BG2.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(1,0)})
-
-local PaletteCursor = Instance.new("Frame")
-PaletteCursor.AnchorPoint = Vector2.new(0.5,0.5)
-PaletteCursor.Size = UDim2.fromOffset(12,12)
-PaletteCursor.BackgroundTransparency = 1
-PaletteCursor.BorderSizePixel = 0
-PaletteCursor.ZIndex = 510
-PaletteCursor.Parent = Palette
-local CS = Instance.new("UIStroke",PaletteCursor)
-CS.Color = Color3.new(1,1,1)
-CS.Thickness = 2
-
-local Hue = Instance.new("Frame")
-Hue.Position = UDim2.fromOffset(241,34)
-Hue.Size = UDim2.fromOffset(25,175)
-Hue.BackgroundColor3 = Color3.new(1,1,1)
-Hue.BorderSizePixel = 0
-Hue.ZIndex = 501
-Hue.Parent = Picker
-Instance.new("UICorner",Hue).CornerRadius = UDim.new(0,4)
-local HueG = Instance.new("UIGradient",Hue)
-HueG.Rotation = 90
-HueG.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(255,0,0)),
-    ColorSequenceKeypoint.new(0.166, Color3.fromRGB(255,0,255)),
-    ColorSequenceKeypoint.new(0.333, Color3.fromRGB(0,0,255)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0,255,255)),
-    ColorSequenceKeypoint.new(0.666, Color3.fromRGB(0,255,0)),
-    ColorSequenceKeypoint.new(0.833, Color3.fromRGB(255,255,0)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(255,0,0)),
-})
-
-local HueCursor = Instance.new("Frame")
-HueCursor.AnchorPoint = Vector2.new(0.5,0.5)
-HueCursor.Size = UDim2.fromOffset(31,5)
-HueCursor.BackgroundColor3 = Color3.new(1,1,1)
-HueCursor.BorderSizePixel = 0
-HueCursor.ZIndex = 520
-HueCursor.Parent = Hue
-Stroke(HueCursor,1)
-
-local RGBLabel = MakeText(Picker,"RGB: 255, 25, 120",UDim2.fromOffset(10,214),UDim2.fromOffset(260,20),11,WHITE)
-RGBLabel.ZIndex = 510
-
-local ApplyButton = Instance.new("TextButton")
-ApplyButton.Position = UDim2.fromOffset(10,243)
-ApplyButton.Size = UDim2.fromOffset(256,26)
-ApplyButton.BackgroundColor3 = ACCENT
-ApplyButton.BorderSizePixel = 0
-ApplyButton.Text = "Apply"
-ApplyButton.TextColor3 = WHITE
-ApplyButton.Font = Enum.Font.Code
-ApplyButton.TextSize = 13
-ApplyButton.AutoButtonColor = false
-ApplyButton.ZIndex = 520
-ApplyButton.Parent = Picker
-Stroke(ApplyButton,1)
-
-local HueValue, Saturation, Brightness = 0,1,1
-local PendingColor = ACCENT
-local PaletteDragging, HueDragging = false,false
-local CurrentSetter = nil
-
-local function UpdatePicker()
-    Palette.BackgroundColor3 = Color3.fromHSV(HueValue,1,1)
-    PendingColor = Color3.fromHSV(HueValue,Saturation,Brightness)
-    PaletteCursor.Position = UDim2.new(Saturation,0,1-Brightness,0)
-    HueCursor.Position = UDim2.new(0.5,0,HueValue,0)
-    RGBLabel.Text = string.format("RGB: %d, %d, %d",
-        math.floor(PendingColor.R*255+0.5),
-        math.floor(PendingColor.G*255+0.5),
-        math.floor(PendingColor.B*255+0.5))
-end
-
-local function LoadColor(color)
-    HueValue,Saturation,Brightness = color:ToHSV()
-    PendingColor = color
-    UpdatePicker()
-end
-
-local function UpdatePalette(input)
-    local pos = Palette.AbsolutePosition
-    local size = Palette.AbsoluteSize
-    if size.X <= 0 or size.Y <= 0 then return end
-    Saturation = math.clamp((input.Position.X - pos.X)/size.X, 0, 1)
-    Brightness = 1 - math.clamp((input.Position.Y - pos.Y)/size.Y, 0, 1)
-    UpdatePicker()
-end
-
-local function UpdateHue(input)
-    local pos = Hue.AbsolutePosition
-    local size = Hue.AbsoluteSize
-    if size.Y <= 0 then return end
-    HueValue = math.clamp((input.Position.Y - pos.Y)/size.Y, 0, 1)
-    UpdatePicker()
-end
-
-Palette.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        PaletteDragging = true
-        UpdatePalette(i)
-    end
-end)
-
-Hue.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        HueDragging = true
-        UpdateHue(i)
-    end
-end)
-
-UIS.InputChanged:Connect(function(i)
-    if i.UserInputType ~= Enum.UserInputType.MouseMovement and i.UserInputType ~= Enum.UserInputType.Touch then return end
-    if PaletteDragging then UpdatePalette(i) end
-    if HueDragging then UpdateHue(i) end
-end)
-
-UIS.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        PaletteDragging = false
-        HueDragging = false
-    end
-end)
-
-local function OpenPickerForColor(previewBtn, getColor, setColor)
-    LoadColor(getColor())
-    CurrentSetter = setColor
-    local p = previewBtn.AbsolutePosition
-    local vp = Camera.ViewportSize
-    local x = p.X + 60
-    local y = p.Y
-    if x + 180 > vp.X then x = p.X - 180 end
-    if y + 160 > vp.Y then y = vp.Y - 160 end
-    Picker.Position = UDim2.fromOffset(math.max(5,x), math.max(5,y))
-    Picker.Visible = true
-end
-
-ApplyButton.MouseButton1Click:Connect(function()
-    if CurrentSetter then CurrentSetter(PendingColor) end
-    Picker.Visible = false
-end)
-
--- COMPONENTS
+-- UI COMPONENTS
 local function Checkbox(parent, label, default, callback, yPos)
     local container = Instance.new("Frame")
     container.Position = UDim2.fromOffset(10, yPos)
@@ -423,7 +425,6 @@ local function Slider(parent, label, minV, maxV, default, callback, yPos, suffix
     container.Parent = parent
 
     MakeText(container, label, UDim2.fromOffset(0,0), UDim2.new(1,-60,0,18), 12, WHITE)
-
     local valLabel = MakeText(container, tostring(default)..suffix, UDim2.new(1,-60,0,0), UDim2.fromOffset(60,18), 12, ACCENT)
     valLabel.TextXAlignment = Enum.TextXAlignment.Right
 
@@ -436,9 +437,7 @@ local function Slider(parent, label, minV, maxV, default, callback, yPos, suffix
     Stroke(bar,1)
 
     local ratio = 0
-    if maxV > minV then
-        ratio = (default - minV) / (maxV - minV)
-    end
+    if maxV > minV then ratio = (default - minV) / (maxV - minV) end
     local fill = Instance.new("Frame")
     fill.Size = UDim2.new(ratio,0,1,0)
     fill.BackgroundColor3 = ACCENT
@@ -615,123 +614,10 @@ local function ColorRow(parent, label, getColor, setColor, yPos)
     Stroke(btn,1)
 
     btn.MouseButton1Click:Connect(function()
-        OpenPickerForColor(btn, getColor, function(c)
-            btn.BackgroundColor3 = c
-            setColor(c)
-        end)
+        btn.BackgroundColor3 = ACCENT
+        setColor(ACCENT)
     end)
     return container
-end
-
--- MAIN
-local Main = Instance.new("Frame")
-Main.Name = "Main"
-Main.Size = UDim2.fromOffset(944,593)
-Main.BackgroundColor3 = BG
-Main.BorderSizePixel = 0
-Main.ClipsDescendants = true
-Main.Parent = ScreenGui
-
-local MainScale = Instance.new("UIScale")
-MainScale.Scale = 0.55
-MainScale.Parent = Main
-Stroke(Main,1.5)
-
-local function CenterMain()
-    local vp = Camera.ViewportSize
-    local scale = MainScale.Scale
-    local w = Main.Size.X.Offset * scale
-    local h = Main.Size.Y.Offset * scale
-    Main.Position = UDim2.fromOffset((vp.X-w)/2,(vp.Y-h)/2)
-end
-CenterMain()
-
-local TitleBar = Instance.new("Frame")
-TitleBar.Size = UDim2.new(1,0,0,41)
-TitleBar.BackgroundColor3 = BG
-TitleBar.BorderSizePixel = 0
-TitleBar.ClipsDescendants = true
-TitleBar.Parent = Main
-
-local TitleGradient = Instance.new("Frame")
-TitleGradient.Size = UDim2.new(1,0,1,0)
-TitleGradient.BackgroundColor3 = Color3.fromRGB(30,20,35)
-TitleGradient.BorderSizePixel = 0
-TitleGradient.Parent = TitleBar
-local TG = Instance.new("UIGradient", TitleGradient)
-TG.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(60,20,80)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(120,30,120)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(40,15,60)),
-})
-
-local TitleLabel = MakeText(TitleBar, "Project Astra  |  t.me/epsteinhub", UDim2.fromOffset(12,0), UDim2.new(1,-24,1,0), 14, WHITE)
-TitleLabel.ZIndex = 2
-
-MakeLine(Main,41)
-
-local Tabs = Instance.new("Frame")
-Tabs.Position = UDim2.fromOffset(0,42)
-Tabs.Size = UDim2.new(1,0,0,40)
-Tabs.BackgroundColor3 = BG
-Tabs.BorderSizePixel = 0
-Tabs.Parent = Main
-
-local TabNames = { "Combat", "Visuals", "Misc", "Settings" }
-local TabButtons = {}
-
-for i,name in ipairs(TabNames) do
-    local b = Instance.new("TextButton")
-    b.Position = UDim2.new((i-1)*0.25,0,0,0)
-    b.Size = UDim2.new(0.25,0,1,0)
-    b.BackgroundTransparency = 1
-    b.BorderSizePixel = 0
-    b.Text = name
-    b.TextColor3 = i==1 and WHITE or GRAY
-    b.Font = Enum.Font.Code
-    b.TextSize = 14
-    b.AutoButtonColor = false
-    b.Parent = Tabs
-    TabButtons[i] = b
-end
-MakeLine(Main,82)
-
-local Pages = {}
-local Scrolls = {}
-
-for i,name in ipairs(TabNames) do
-    local page = Instance.new("Frame")
-    page.Name = name
-    page.Position = UDim2.fromOffset(0,83)
-    page.Size = UDim2.new(1,0,1,-83)
-    page.BackgroundTransparency = 1
-    page.BorderSizePixel = 0
-    page.Visible = (i==1)
-    page.Parent = Main
-
-    local scroll = Instance.new("ScrollingFrame")
-    scroll.Name = "Scroll"
-    scroll.Size = UDim2.fromScale(1,1)
-    scroll.BackgroundTransparency = 1
-    scroll.BorderSizePixel = 0
-    scroll.ScrollBarThickness = 3
-    scroll.ScrollBarImageColor3 = ACCENT
-    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    scroll.CanvasSize = UDim2.new()
-    scroll.Parent = page
-
-    local layout = Instance.new("UIListLayout",scroll)
-    layout.Padding = UDim.new(0,4)
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-
-    local pad = Instance.new("UIPadding",scroll)
-    pad.PaddingTop = UDim.new(0,8)
-    pad.PaddingLeft = UDim.new(0,8)
-    pad.PaddingRight = UDim.new(0,8)
-    pad.PaddingBottom = UDim.new(0,8)
-
-    Pages[i] = page
-    Scrolls[i] = scroll
 end
 
 local function Section(parent, title, y)
@@ -760,25 +646,9 @@ Slider(CombatScroll, "FOV Radius", 1, 500, 200, function(v) FOV_RADIUS = v end, 
 Dropdown(CombatScroll, "Hit Part", {"Head","Torso","HumanoidRootPart","Random"}, "Head", function(v) HIT_PART = v end, cY); cY = cY + 54
 
 cY = cY + 6
-cY = cY + Section(CombatScroll, "FOV VISUAL", cY)
-ColorRow(CombatScroll, "FOV Color", function() return silentAimFovColor end, function(c) silentAimFovColor = c end, cY); cY = cY + 26
-ColorRow(CombatScroll, "Snapline Color", function() return silentAimSnaplineColor end, function(c) silentAimSnaplineColor = c end, cY); cY = cY + 26
-
-cY = cY + 6
 cY = cY + Section(CombatScroll, "RAPID FIRE", cY)
 Checkbox(CombatScroll, "Enable Rapid Fire", false, function(v) RAPID_FIRE = v end, cY); cY = cY + 26
 Slider(CombatScroll, "Rate Value (x100k)", 1, 100, 100, function(v) RAPID_VALUE = v * 100000 end, cY); cY = cY + 46
-
-cY = cY + 6
-cY = cY + Section(CombatScroll, "WEAPON", cY)
-Checkbox(CombatScroll, "Instant Hit", false, function(v) instantHitEnabled = v end, cY); cY = cY + 26
-Checkbox(CombatScroll, "No Recoil", false, function(v) noRecoilEnabled = v end, cY); cY = cY + 26
-Checkbox(CombatScroll, "No Spread", false, function(v) noSpreadEnabled = v end, cY); cY = cY + 26
-Checkbox(CombatScroll, "Instant Reload", false, function(v) instantReloadEnabled = v end, cY); cY = cY + 26
-Checkbox(CombatScroll, "Auto Reload", false, function(v) autoReloadEnabled = v end, cY); cY = cY + 26
-Checkbox(CombatScroll, "No Equip Delay", false, function(v) noEquipDelayEnabled = v end, cY); cY = cY + 26
-Checkbox(CombatScroll, "Full Auto", false, function(v) fullAutoEnabled = v end, cY); cY = cY + 26
-Slider(CombatScroll, "Bullet Speed", 500, 5000, 5000, function(v) bulletSpeedValue = v end, cY); cY = cY + 46
 
 cY = cY + 6
 cY = cY + Section(CombatScroll, "BULLET TRACER", cY)
@@ -789,7 +659,6 @@ Dropdown(CombatScroll, "Type", {"Red Laser","Neon Linia Bruh"}, "Red Laser", fun
 cY = cY + 6
 cY = cY + Section(CombatScroll, "HIT MARKER", cY)
 Checkbox(CombatScroll, "Enable Hit Marker", true, function(v) hitMarkerEnabled = v end, cY); cY = cY + 26
-ColorRow(CombatScroll, "Marker Color", function() return hitMarkerColor end, function(c) hitMarkerColor = c end, cY); cY = cY + 26
 Slider(CombatScroll, "Marker Size", 4, 30, 9, function(v) hitMarkerSize = v end, cY, "px"); cY = cY + 46
 Slider(CombatScroll, "Duration (x10ms)", 1, 100, 35, function(v) hitMarkerDuration = v/100 end, cY, "s"); cY = cY + 46
 
@@ -798,27 +667,6 @@ cY = cY + Section(CombatScroll, "HIT SOUND", cY)
 Checkbox(CombatScroll, "Enable Hit Sound", false, function(v) HIT_SOUND = v end, cY); cY = cY + 26
 Slider(CombatScroll, "Volume", 0, 10, 1, function(v) HIT_SOUND_VOL = v end, cY); cY = cY + 46
 
-local soundInput = Instance.new("Frame")
-soundInput.Position = UDim2.fromOffset(10,cY)
-soundInput.Size = UDim2.new(1,-20,0,48)
-soundInput.BackgroundTransparency = 1
-soundInput.Parent = CombatScroll
-MakeText(soundInput,"Sound ID",UDim2.fromOffset(0,0),UDim2.new(1,0,0,18),12,WHITE)
-local sBox = Instance.new("TextBox")
-sBox.Position = UDim2.fromOffset(0,20)
-sBox.Size = UDim2.new(1,0,0,24)
-sBox.BackgroundColor3 = DROPBG
-sBox.BorderSizePixel = 0
-sBox.Text = HIT_SOUND_ID
-sBox.TextColor3 = WHITE
-sBox.Font = Enum.Font.Code
-sBox.TextSize = 11
-sBox.ClearTextOnFocus = false
-sBox.Parent = soundInput
-Stroke(sBox,1)
-sBox.FocusLost:Connect(function() HIT_SOUND_ID = sBox.Text end)
-cY = cY + 50
-
 -- VISUALS
 local VisScroll = Scrolls[2]
 local vY = 0
@@ -826,26 +674,16 @@ local vY = 0
 vY = vY + Section(VisScroll, "ESP", vY)
 Checkbox(VisScroll, "Enable ESP", false, function(v) espEnabled = v end, vY); vY = vY + 26
 Checkbox(VisScroll, "Box", true, function(v) espBox = v end, vY); vY = vY + 26
-ColorRow(VisScroll, "Box Color", function() return espBoxColor end, function(c) espBoxColor = c end, vY); vY = vY + 26
 Checkbox(VisScroll, "Name", true, function(v) espName = v end, vY); vY = vY + 26
-ColorRow(VisScroll, "Name Color", function() return espNameColor end, function(c) espNameColor = c end, vY); vY = vY + 26
 Checkbox(VisScroll, "Health", true, function(v) espHealth = v end, vY); vY = vY + 26
 Checkbox(VisScroll, "Distance", true, function(v) espDistance = v end, vY); vY = vY + 26
-ColorRow(VisScroll, "Distance Color", function() return espDistColor end, function(c) espDistColor = c end, vY); vY = vY + 26
 Checkbox(VisScroll, "Weapon", true, function(v) espWeapon = v end, vY); vY = vY + 26
-ColorRow(VisScroll, "Weapon Color", function() return espWeapColor end, function(c) espWeapColor = c end, vY); vY = vY + 26
 
 vY = vY + 6
 vY = vY + Section(VisScroll, "CUSTOM HANDS", vY)
 Checkbox(VisScroll, "Enable Custom Hands", false, function(v)
     customHandsEnabled = v
     if v then SetupCustomHands() else RemoveCustomHands() end
-end, vY); vY = vY + 26
-ColorRow(VisScroll, "Hands Color", function() return customHandsColor end, function(c)
-    customHandsColor = c
-    for part,_ in pairs(activeLockedArms) do
-        pcall(function() part.Color = c end)
-    end
 end, vY); vY = vY + 26
 Slider(VisScroll, "Hands Transparency", 0, 100, 55, function(v) customHandsTransp = v/100 end, vY, "%"); vY = vY + 46
 
@@ -862,7 +700,6 @@ Slider(VisScroll, "Z", -20, 20, -8, function(v) viewModelZ = v end, vY); vY = vY
 vY = vY + 6
 vY = vY + Section(VisScroll, "GUN CHAMS", vY)
 Checkbox(VisScroll, "Enable Gun Chams", false, function(v) gunChamsEnabled = v end, vY); vY = vY + 26
-ColorRow(VisScroll, "Gun Chams Color", function() return gunChamsColor end, function(c) gunChamsColor = c end, vY); vY = vY + 26
 
 vY = vY + 6
 vY = vY + Section(VisScroll, "SKYBOX", vY)
@@ -881,9 +718,7 @@ Dropdown(VisScroll, "Skybox Preset",
 
 vY = vY + 6
 vY = vY + Section(VisScroll, "CAMERA", vY)
-Checkbox(VisScroll, "Custom FOV", false, function(v)
-    cameraFovEnabled = v
-end, vY); vY = vY + 26
+Checkbox(VisScroll, "Custom FOV", false, function(v) cameraFovEnabled = v end, vY); vY = vY + 26
 Slider(VisScroll, "FOV Value", 60, 160, 120, function(v) cameraFovValue = v end, vY); vY = vY + 46
 Checkbox(VisScroll, "No Fog", false, function(v)
     noFogEnabled = v
@@ -930,24 +765,7 @@ Slider(MiscScroll, "Speed Value", 16, 500, 50, function(v)
     end
 end, mY); mY = mY + 46
 Checkbox(MiscScroll, "Infinite Jump", false, function(v) infJumpEnabled = v end, mY); mY = mY + 26
-Checkbox(MiscScroll, "No Jump Cooldown", false, function(v) noJumpCooldown = v end, mY); mY = mY + 26
-Checkbox(MiscScroll, "Big Jump", false, function(v) bigJumpEnabled = v end, mY); mY = mY + 26
-Slider(MiscScroll, "Jump Power", 50, 500, 100, function(v)
-    bigJumpPower = v
-    if bigJumpEnabled then
-        local h = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-        if h then h.UseJumpPower = true; h.JumpPower = v end
-    end
-end, mY); mY = mY + 46
-Checkbox(MiscScroll, "No Clip", false, function(v)
-    noClipEnabled = v
-    local char = LP.Character
-    if char then
-        for _,p in ipairs(char:GetDescendants()) do
-            if p:IsA("BasePart") then p.CanCollide = not v end
-        end
-    end
-end, mY); mY = mY + 26
+Checkbox(MiscScroll, "No Clip", false, function(v) noClipEnabled = v end, mY); mY = mY + 26
 Checkbox(MiscScroll, "Bunny Hop", false, function(v) bhopEnabled = v end, mY); mY = mY + 26
 Checkbox(MiscScroll, "Jump Shot", false, function(v) JUMP_SHOT = v end, mY); mY = mY + 26
 
@@ -959,9 +777,6 @@ KeybindRow(MiscScroll, "Fly Keybind", keybinds.Fly, function(k) keybinds.Fly = k
 
 mY = mY + 6
 mY = mY + Section(MiscScroll, "TELEPORT", mY)
-Checkbox(MiscScroll, "Show TP Button (mobile)", false, function(v)
-    if v then CreateTPButton() else DestroyTPButton() end
-end, mY); mY = mY + 26
 KeybindRow(MiscScroll, "TP Keybind (PC)", tpKey, function(k) tpKey = k end, mY); mY = mY + 26
 Slider(MiscScroll, "TP Distance", 10, 500, 100, function(v) tpDistance = v end, mY); mY = mY + 46
 
@@ -971,222 +786,20 @@ Checkbox(MiscScroll, "Enable Freeze (hold key)", false, function(v) freezeEnable
 KeybindRow(MiscScroll, "Freeze Keybind", keybinds.Freeze, function(k) keybinds.Freeze = k end, mY); mY = mY + 26
 
 mY = mY + 6
-mY = mY + Section(MiscScroll, "MOBILE FREEZE BUTTON", mY)
-Checkbox(MiscScroll, "Show Mobile Freeze Button", false, function(v)
-    if v then CreateFreezeButton() else DestroyFreezeButton() end
-end, mY); mY = mY + 26
-
-mY = mY + 6
 mY = mY + Section(MiscScroll, "AIR WALK", mY)
 KeybindRow(MiscScroll, "Air Walk Keybind", airWalkKey, function(k) airWalkKey = k end, mY); mY = mY + 26
 Slider(MiscScroll, "Air Walk Duration", 1, 10, 3, function(v) airWalkDuration = v end, mY, "s"); mY = mY + 46
 Slider(MiscScroll, "Air Walk Height", 20, 300, 100, function(v) airWalkHeight = v end, mY); mY = mY + 46
-Checkbox(MiscScroll, "Show Air Walk Button (mobile)", false, function(v)
-    if v then CreateAirWalkButton() else DestroyAirWalkButton() end
-end, mY); mY = mY + 26
 
 -- SETTINGS
 local SetScroll = Scrolls[4]
 local sY = 0
 
-sY = sY + Section(SetScroll, "WHITELIST", sY)
-Checkbox(SetScroll, "Enable Whitelist", false, function(v) whitelistEnabled = v; RenderWhitelist() end, sY); sY = sY + 26
-
-local whitelistFrame = Instance.new("ScrollingFrame")
-whitelistFrame.Position = UDim2.fromOffset(10, sY)
-whitelistFrame.Size = UDim2.new(1,-20,0,140)
-whitelistFrame.BackgroundColor3 = PANEL
-whitelistFrame.BorderSizePixel = 0
-whitelistFrame.ScrollBarThickness = 3
-whitelistFrame.ScrollBarImageColor3 = ACCENT
-whitelistFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-whitelistFrame.CanvasSize = UDim2.new()
-whitelistFrame.Parent = SetScroll
-Stroke(whitelistFrame,1)
-Instance.new("UIListLayout",whitelistFrame).Padding = UDim.new(0,3)
-sY = sY + 146
-
-function RenderWhitelist()
-    for _,c in ipairs(whitelistFrame:GetChildren()) do
-        if c:IsA("TextButton") then c:Destroy() end
-    end
-    for _,p in ipairs(Players:GetPlayers()) do
-        if p ~= LP then
-            local b = Instance.new("TextButton")
-            b.Size = UDim2.new(1,-6,0,22)
-            b.BackgroundColor3 = whitelist[p.Name] and Color3.fromRGB(120,30,120) or Color3.fromRGB(20,20,20)
-            b.BorderSizePixel = 0
-            b.Text = p.Name .. (whitelist[p.Name] and "  ON" or "")
-            b.TextColor3 = WHITE
-            b.Font = Enum.Font.Code
-            b.TextSize = 11
-            b.TextXAlignment = Enum.TextXAlignment.Left
-            b.AutoButtonColor = false
-            b.Parent = whitelistFrame
-            Instance.new("UIPadding",b).PaddingLeft = UDim.new(0,6)
-            b.MouseButton1Click:Connect(function()
-                whitelist[p.Name] = not whitelist[p.Name] or nil
-                RenderWhitelist()
-            end)
-        end
-    end
-end
-
-Players.PlayerAdded:Connect(RenderWhitelist)
-Players.PlayerRemoving:Connect(RenderWhitelist)
-RenderWhitelist()
-
-local function SelectTab(index)
-    for i,page in ipairs(Pages) do
-        page.Visible = (i == index)
-    end
-    for i,btn in ipairs(TabButtons) do
-        btn.TextColor3 = i == index and WHITE or GRAY
-    end
-    Picker.Visible = false
-end
-
-for i,btn in ipairs(TabButtons) do
-    btn.MouseButton1Click:Connect(function() SelectTab(i) end)
-end
-SelectTab(1)
-
--- SIDE PANEL
-local Side = Instance.new("Frame")
-Side.Size = UDim2.fromOffset(161,87)
-Side.Position = UDim2.fromOffset(68,185)
-Side.BackgroundColor3 = BG
-Side.BorderSizePixel = 0
-Side.Parent = ScreenGui
-local SideScale = Instance.new("UIScale")
-SideScale.Scale = 0.55
-SideScale.Parent = Side
-Stroke(Side,1)
-
-local ToggleButton = Instance.new("TextButton")
-ToggleButton.Size = UDim2.new(1,0,0,43)
-ToggleButton.BackgroundTransparency = 1
-ToggleButton.BorderSizePixel = 0
-ToggleButton.Text = "Toggle UI"
-ToggleButton.TextColor3 = WHITE
-ToggleButton.Font = Enum.Font.Code
-ToggleButton.TextSize = 14
-ToggleButton.AutoButtonColor = false
-ToggleButton.Parent = Side
-
-local SideSep = Instance.new("Frame")
-SideSep.Position = UDim2.fromOffset(0,43)
-SideSep.Size = UDim2.new(1,0,0,1)
-SideSep.BackgroundColor3 = ACCENT
-SideSep.BorderSizePixel = 0
-SideSep.Parent = Side
-
-local LockButton = Instance.new("TextButton")
-LockButton.Position = UDim2.fromOffset(0,44)
-LockButton.Size = UDim2.new(1,0,0,43)
-LockButton.BackgroundTransparency = 1
-LockButton.BorderSizePixel = 0
-LockButton.Text = "Lock UI"
-LockButton.TextColor3 = WHITE
-LockButton.Font = Enum.Font.Code
-LockButton.TextSize = 14
-LockButton.AutoButtonColor = false
-LockButton.Parent = Side
-
-local MainVisible = true
-ToggleButton.MouseButton1Click:Connect(function()
-    MainVisible = not MainVisible
-    Main.Visible = MainVisible
-    if not MainVisible then Picker.Visible = false end
-end)
-
-local Locked = false
-LockButton.MouseButton1Click:Connect(function()
-    Locked = not Locked
-    LockButton.Text = Locked and "Unlock UI" or "Lock UI"
-end)
-
--- DRAG / RESIZE
-local MainDragging, MainDragStart, MainStartPos = false,nil,nil
-TitleBar.InputBegan:Connect(function(i)
-    if Locked then return end
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        MainDragging = true
-        MainDragStart = i.Position
-        MainStartPos = Main.Position
-    end
-end)
-
-local SideDragging, SideDragStart, SideStartPos = false,nil,nil
-Side.InputBegan:Connect(function(i)
-    if Locked then return end
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        SideDragging = true
-        SideDragStart = i.Position
-        SideStartPos = Side.Position
-    end
-end)
-
-local ResizeHandle = Instance.new("TextButton")
-ResizeHandle.AnchorPoint = Vector2.new(1,1)
-ResizeHandle.Position = UDim2.fromScale(1,1)
-ResizeHandle.Size = UDim2.fromOffset(20,20)
-ResizeHandle.BackgroundColor3 = BG
-ResizeHandle.BorderSizePixel = 0
-ResizeHandle.Text = "R"
-ResizeHandle.TextColor3 = ACCENT
-ResizeHandle.Font = Enum.Font.Code
-ResizeHandle.TextSize = 15
-ResizeHandle.AutoButtonColor = false
-ResizeHandle.ZIndex = 1000
-ResizeHandle.Parent = Main
-
-local Resizing, ResizeStart, OrigSize = false,nil,nil
-ResizeHandle.InputBegan:Connect(function(i)
-    if Locked then return end
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        Resizing = true
-        ResizeStart = i.Position
-        OrigSize = Main.Size
-    end
-end)
-
-UIS.InputChanged:Connect(function(i)
-    if i.UserInputType ~= Enum.UserInputType.MouseMovement and i.UserInputType ~= Enum.UserInputType.Touch then return end
-    if MainDragging and not Locked then
-        local d = i.Position - MainDragStart
-        Main.Position = UDim2.fromOffset(MainStartPos.X.Offset + d.X, MainStartPos.Y.Offset + d.Y)
-    end
-    if SideDragging and not Locked then
-        local d = i.Position - SideDragStart
-        Side.Position = UDim2.fromOffset(SideStartPos.X.Offset + d.X, SideStartPos.Y.Offset + d.Y)
-    end
-    if Resizing and not Locked then
-        local d = i.Position - ResizeStart
-        local w = math.max(650, OrigSize.X.Offset + d.X)
-        local h = math.max(400, OrigSize.Y.Offset + d.Y)
-        Main.Size = UDim2.fromOffset(w,h)
-    end
-end)
-
-UIS.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        MainDragging = false
-        SideDragging = false
-        Resizing = false
-    end
-end)
-
-if Camera then
-    Camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-        if not MainDragging and not Resizing then CenterMain() end
-    end)
-end
-
-local function IsWhitelisted(plr)
-    if not whitelistEnabled then return false end
-    return whitelist[plr.Name] == true
-end
+sY = sY + Section(SetScroll, "INFO", sY)
+MakeText(SetScroll, "Project Astra v13", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 13, ACCENT); sY = sY + 24
+MakeText(SetScroll, "t.me/epsteinhub", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 13, WHITE); sY = sY + 24
+MakeText(SetScroll, "Insert — toggle UI", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 12, GRAY); sY = sY + 24
+MakeText(SetScroll, "LMB на иконке EPSTEIN — toggle UI", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 11, GRAY); sY = sY + 24
 
 -- FOV CIRCLE
 local FOVFrameGui = Instance.new("ScreenGui")
@@ -1228,7 +841,6 @@ local function getSilentTarget()
     for _,p in ipairs(Players:GetPlayers()) do
         if p == LP then continue end
         if TEAM_CHECK and p.Team == LP.Team then continue end
-        if IsWhitelisted(p) then continue end
         local char = p.Character
         if not char then continue end
         local hum = char:FindFirstChildOfClass("Humanoid")
@@ -1371,7 +983,7 @@ RS.RenderStepped:Connect(function()
     end
 end)
 
--- SILENT AIM (hookfunction castRays)
+-- SILENT AIM
 do
     local blaster = ReplicatedStorage:FindFirstChild("Blaster")
     local castRaysFunc = nil
@@ -1467,153 +1079,7 @@ if type(getgc) == "function" then
     end)
 end
 
--- WEAPON (RUSTED)
-task.spawn(function()
-    task.wait(2)
-    pcall(function()
-        local blaster = ReplicatedStorage:FindFirstChild("Blaster")
-        if not blaster then return end
-
-        local scripts = blaster:FindFirstChild("Scripts")
-        if not scripts then return end
-
-        -- NoSpread
-        pcall(function()
-            local util = blaster:FindFirstChild("Utility")
-            local getRayDirections = util and util:FindFirstChild("getRayDirections")
-            if getRayDirections then
-                local original = require(getRayDirections)
-                package.loaded[getRayDirections] = function(cf, count, spread, seed)
-                    if noSpreadEnabled or SILENT_AIM then
-                        local dirs = table.create(count)
-                        local dir = cf.LookVector
-                        for i = 1, count do dirs[i] = dir end
-                        return dirs
-                    end
-                    return original(cf, count, spread, seed)
-                end
-            end
-        end)
-
-        -- BlasterController
-        local okBc, blasterController = pcall(function()
-            return require(scripts:FindFirstChild("BlasterController"))
-        end)
-        if not okBc or not blasterController then return end
-
-        -- NoRecoil
-        pcall(function()
-            local recoiler = scripts:FindFirstChild("CameraRecoiler")
-            if recoiler then
-                local CameraRecoiler = require(recoiler)
-                local oldRecoil = CameraRecoiler.recoil
-                CameraRecoiler.recoil = function(...)
-                    if noRecoilEnabled then return end
-                    return oldRecoil(...)
-                end
-            end
-        end)
-
-        -- InstantReload / AutoReload
-        if blasterController.reload then
-            local oldReload = blasterController.reload
-            blasterController.reload = function(self)
-                if not (instantReloadEnabled or autoReloadEnabled) then
-                    return oldReload(self)
-                end
-                if tick() - lastReloadTime < 0.15 then return end
-                lastReloadTime = tick()
-
-                local maxAmmo = self.blaster and self.blaster:GetAttribute("magazineSize") or 30
-                self.ammo = maxAmmo
-                self.reloading = false
-                pcall(function()
-                    if self.guiController then
-                        self.guiController:setAmmo(maxAmmo)
-                        self.guiController:setReloading(false)
-                    end
-                end)
-                pcall(function()
-                    local remotes = blaster:FindFirstChild("Remotes")
-                    local reloadRemote = remotes and remotes:FindFirstChild("Reload")
-                    if reloadRemote then reloadRemote:FireServer(self.blaster) end
-                end)
-            end
-        end
-
-        -- NoEquipDelay + AutoReload
-        if blasterController.canShoot then
-            local oldCanShoot = blasterController.canShoot
-            blasterController.canShoot = function(self)
-                if noEquipDelayEnabled then
-                    self.canShootAfterEquip = true
-                    self.isWeaponBlocked = false
-                end
-
-                if (instantReloadEnabled or autoReloadEnabled) and self.ammo ~= nil and self.ammo <= 0 then
-                    pcall(function() blasterController.reload(self) end)
-                end
-
-                if noEquipDelayEnabled or instantReloadEnabled or autoReloadEnabled then
-                    local sc = _G.SprintController
-                    local sprinting = sc and sc.isSprinting and sc.isSprinting()
-                    local hasAmmo = (self.ammo and self.ammo > 0) or instantReloadEnabled or autoReloadEnabled
-                    return self:isHumanoidAlive() and self.equipped and hasAmmo and not sprinting
-                end
-
-                return oldCanShoot(self)
-            end
-        end
-
-        -- FullAuto
-        if blasterController.startShooting then
-            local oldStartShooting = blasterController.startShooting
-            blasterController.startShooting = function(self)
-                if fullAutoEnabled then
-                    pcall(function()
-                        if self.blaster then self.blaster:SetAttribute("fireMode", "Auto") end
-                    end)
-                end
-                return oldStartShooting(self)
-            end
-        end
-
-        -- NoEquipDelay on equip
-        if blasterController.equip then
-            local oldEquip = blasterController.equip
-            blasterController.equip = function(self)
-                oldEquip(self)
-                if noEquipDelayEnabled then self.canShootAfterEquip = true end
-            end
-        end
-    end)
-end)
-
--- InstantHit
-task.spawn(function()
-    while true do
-        task.wait(0.1)
-        if instantHitEnabled then
-            local char = LP.Character
-            if char then
-                local tool = char:FindFirstChildOfClass("Tool")
-                if tool then
-                    pcall(function()
-                        local attrs = tool:GetAttributes()
-                        for name, _ in pairs(attrs) do
-                            local lower = name:lower()
-                            if lower == "bulletspeed" or lower == "bulletvelocity" or lower == "projectilespeed" then
-                                tool:SetAttribute(name, bulletSpeedValue)
-                            end
-                        end
-                    end)
-                end
-            end
-        end
-    end
-end)
-
--- FOV жёсткое удержание
+-- FOV hold
 task.spawn(function()
     while true do
         RS.RenderStepped:Wait()
@@ -1626,7 +1092,7 @@ task.spawn(function()
     end
 end)
 
--- SNAPLINE + FOV RENDER
+-- SNAPLINE + FOV
 RS.RenderStepped:Connect(function()
     local vp = Camera.ViewportSize
     local cx = vp.X/2
@@ -1893,7 +1359,7 @@ end
 RS.RenderStepped:Connect(function()
     for player, o in pairs(espCache) do
         local char = player.Character
-        local visible = espEnabled and not IsWhitelisted(player)
+        local visible = espEnabled
 
         if visible and char then
             local root = char:FindFirstChild("HumanoidRootPart")
@@ -1966,7 +1432,7 @@ RS.RenderStepped:Connect(function()
     end
 end)
 
--- MAIN HEARTBEAT
+-- MAIN LOOP
 local wasInAirBhop = false
 
 RS.Heartbeat:Connect(function(dt)
@@ -2069,7 +1535,6 @@ function DoAirWalk()
     if not root or not hum then return end
 
     airWalkBusy = true
-
     local targetY = root.Position.Y + airWalkHeight
     root.CFrame = CFrame.new(root.Position.X, targetY, root.Position.Z) * root.CFrame.Rotation
 
@@ -2085,7 +1550,6 @@ function DoAirWalk()
     bodyGyro.Parent = root
 
     hum:ChangeState(Enum.HumanoidStateType.Running)
-
     task.wait(airWalkDuration)
 
     if bodyPos then bodyPos:Destroy() end
@@ -2106,141 +1570,6 @@ function DoTeleport()
     if not root then return end
     root.CFrame = CFrame.new(root.Position + Camera.CFrame.LookVector * tpDistance) * root.CFrame.Rotation
     root.Velocity = Vector3.zero
-end
-
-local freezeBtnGui, freezeBtn
-local tpBtnGui, tpBtn
-local awBtnGui, awBtn
-
-local function SetupDraggable(btn)
-    local dragging, dragInput, dragStart, startPos
-    btn.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            dragging = true; dragStart = i.Position; startPos = btn.Position
-            i.Changed:Connect(function()
-                if i.UserInputState == Enum.UserInputState.End then dragging = false end
-            end)
-        end
-    end)
-    btn.InputChanged:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
-            dragInput = i
-        end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if i == dragInput and dragging then
-            local d = i.Position - dragStart
-            btn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
-        end
-    end)
-end
-
-function CreateFreezeButton()
-    if freezeBtnGui then return end
-    freezeBtnGui = Instance.new("ScreenGui")
-    freezeBtnGui.Name = "AstraFreezeUI"
-    freezeBtnGui.ResetOnSpawn = false
-    freezeBtnGui.Parent = GUI_PARENT
-
-    freezeBtn = Instance.new("TextButton")
-    freezeBtn.Size = UDim2.new(0,110,0,45)
-    freezeBtn.Position = UDim2.new(0.1,0,0.4,0)
-    freezeBtn.BackgroundColor3 = Color3.fromRGB(30,35,45)
-    freezeBtn.BorderColor3 = Color3.fromRGB(255,80,180)
-    freezeBtn.BorderSizePixel = 2
-    freezeBtn.Text = "Freeze Up"
-    freezeBtn.TextColor3 = Color3.fromRGB(230,230,230)
-    freezeBtn.Font = Enum.Font.SourceSansBold
-    freezeBtn.TextSize = 16
-    freezeBtn.ZIndex = 99999
-    freezeBtn.Parent = freezeBtnGui
-    Instance.new("UICorner",freezeBtn).CornerRadius = UDim.new(0,6)
-    SetupDraggable(freezeBtn)
-
-    local pressed = false
-    freezeBtn.MouseButton1Click:Connect(function()
-        local char = LP.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if not root then return end
-        pressed = not pressed
-        if pressed then
-            freezeTargetCF = root.CFrame * CFrame.new(0,50,0)
-            freezeBtn.Text = "UNFREEZE"
-            freezeBtn.BackgroundColor3 = Color3.fromRGB(180,40,80)
-            freezeBtn.BorderColor3 = Color3.fromRGB(255,50,120)
-            freezeEnabled = true
-        else
-            freezeEnabled = false
-            freezeTargetCF = nil
-            freezeBtn.Text = "Freeze Up"
-            freezeBtn.BackgroundColor3 = Color3.fromRGB(30,35,45)
-            freezeBtn.BorderColor3 = Color3.fromRGB(255,80,180)
-        end
-    end)
-end
-
-function DestroyFreezeButton()
-    if freezeBtnGui then freezeBtnGui:Destroy(); freezeBtnGui = nil; freezeBtn = nil end
-    freezeEnabled = false
-    freezeTargetCF = nil
-end
-
-function CreateTPButton()
-    if tpBtnGui then return end
-    tpBtnGui = Instance.new("ScreenGui")
-    tpBtnGui.Name = "AstraTPButton"
-    tpBtnGui.ResetOnSpawn = false
-    tpBtnGui.Parent = GUI_PARENT
-
-    tpBtn = Instance.new("TextButton")
-    tpBtn.Size = UDim2.new(0,110,0,45)
-    tpBtn.Position = UDim2.new(0.1,0,0.5,0)
-    tpBtn.BackgroundColor3 = Color3.fromRGB(25,30,40)
-    tpBtn.BorderColor3 = Color3.fromRGB(255,80,180)
-    tpBtn.BorderSizePixel = 2
-    tpBtn.Text = "TP "..tpDistance.." Studs"
-    tpBtn.TextColor3 = Color3.fromRGB(240,240,240)
-    tpBtn.Font = Enum.Font.Code
-    tpBtn.TextSize = 14
-    tpBtn.ZIndex = 99999
-    tpBtn.Parent = tpBtnGui
-    Instance.new("UICorner",tpBtn).CornerRadius = UDim.new(0,5)
-    SetupDraggable(tpBtn)
-
-    tpBtn.MouseButton1Click:Connect(function() DoTeleport() end)
-end
-
-function DestroyTPButton()
-    if tpBtnGui then tpBtnGui:Destroy(); tpBtnGui = nil; tpBtn = nil end
-end
-
-function CreateAirWalkButton()
-    if awBtnGui then return end
-    awBtnGui = Instance.new("ScreenGui")
-    awBtnGui.Name = "AstraAirWalkButton"
-    awBtnGui.ResetOnSpawn = false
-    awBtnGui.Parent = GUI_PARENT
-
-    awBtn = Instance.new("TextButton")
-    awBtn.Size = UDim2.new(0,130,0,45)
-    awBtn.Position = UDim2.new(0.1,0,0.5,0)
-    awBtn.BackgroundColor3 = Color3.fromRGB(25,30,40)
-    awBtn.BorderColor3 = Color3.fromRGB(255,80,180)
-    awBtn.BorderSizePixel = 2
-    awBtn.Text = "Air Walk"
-    awBtn.TextColor3 = Color3.fromRGB(240,240,240)
-    awBtn.Font = Enum.Font.Code
-    awBtn.TextSize = 13
-    awBtn.ZIndex = 99999
-    awBtn.Parent = awBtnGui
-    Instance.new("UICorner",awBtn).CornerRadius = UDim.new(0,6)
-    SetupDraggable(awBtn)
-
-    awBtn.MouseButton1Click:Connect(function() DoAirWalk() end)
-end
-
-function DestroyAirWalkButton()
-    if awBtnGui then awBtnGui:Destroy(); awBtnGui = nil; awBtn = nil end
 end
 
 UIS.InputBegan:Connect(function(inp, gpe)
