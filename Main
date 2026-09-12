@@ -1,4 +1,4 @@
--- Project Astra v11 | t.me/epsteinhub
+-- Project Astra v12 | t.me/epsteinhub
 
 local UIS = game:GetService("UserInputService")
 local RS = game:GetService("RunService")
@@ -84,7 +84,7 @@ local ActiveHitmarkers = {}
 
 local JUMP_SHOT = false
 
--- WEAPON STATE (Rusted)
+-- WEAPON STATE
 local instantHitEnabled = false
 local noRecoilEnabled = false
 local noSpreadEnabled = false
@@ -796,7 +796,7 @@ Checkbox(CombatScroll, "Enable Rapid Fire", false, function(v) RAPID_FIRE = v en
 Slider(CombatScroll, "Rate Value (x100k)", 1, 100, 100, function(v) RAPID_VALUE = v * 100000 end, cY); cY = cY + 46
 
 cY = cY + 6
-cY = cY + Section(CombatScroll, "WEAPON (RUSTED)", cY)
+cY = cY + Section(CombatScroll, "WEAPON", cY)
 Checkbox(CombatScroll, "Instant Hit", false, function(v) instantHitEnabled = v end, cY); cY = cY + 26
 Checkbox(CombatScroll, "No Recoil", false, function(v) noRecoilEnabled = v end, cY); cY = cY + 26
 Checkbox(CombatScroll, "No Spread", false, function(v) noSpreadEnabled = v end, cY); cY = cY + 26
@@ -881,15 +881,9 @@ Checkbox(VisScroll, "Enable View Model", false, function(v)
     viewModelEnabled = v
     if v then ApplyViewModel() else RemoveViewModel() end
 end, vY); vY = vY + 26
-Slider(VisScroll, "X", -20, 20, 5, function(v)
-    viewModelX = v
-end, vY); vY = vY + 46
-Slider(VisScroll, "Y", -20, 20, -2, function(v)
-    viewModelY = v
-end, vY); vY = vY + 46
-Slider(VisScroll, "Z", -20, 20, -8, function(v)
-    viewModelZ = v
-end, vY); vY = vY + 46
+Slider(VisScroll, "X", -20, 20, 5, function(v) viewModelX = v end, vY); vY = vY + 46
+Slider(VisScroll, "Y", -20, 20, -2, function(v) viewModelY = v end, vY); vY = vY + 46
+Slider(VisScroll, "Z", -20, 20, -8, function(v) viewModelZ = v end, vY); vY = vY + 46
 
 vY = vY + 6
 vY = vY + Section(VisScroll, "GUN CHAMS", vY)
@@ -1622,7 +1616,7 @@ task.spawn(function()
     end)
 end)
 
--- InstantHit — ускорение пуль до bulletSpeedValue
+-- InstantHit
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -1729,7 +1723,7 @@ task.spawn(function()
     end
 end)
 
--- CUSTOM HANDS (руки в неоне)
+-- CUSTOM HANDS
 local TARGET_ARM_NAMES = {
     ["RightArm"] = true,
     ["LeftArm"] = true,
