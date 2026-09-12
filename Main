@@ -1,5 +1,4 @@
--- Project Astra v9 | t.me/epsteinhub
--- Combat: EpsteinHub V2 core | UI: Nyxon base
+-- Project Astra v10 | t.me/epsteinhub
 
 local UIS = game:GetService("UserInputService")
 local RS = game:GetService("RunService")
@@ -7,7 +6,6 @@ local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
 local Debris = game:GetService("Debris")
 local SoundService = game:GetService("SoundService")
-local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LP = Players.LocalPlayer
@@ -57,7 +55,7 @@ local WHITE = Color3.fromRGB(235,235,235)
 local GRAY = Color3.fromRGB(145,145,150)
 local ACCENT = Color3.fromRGB(255,25,120)
 
--- STATE
+-- COMBAT STATE
 local SILENT_AIM = false
 local HIT_CHANCE = 95
 local HIT_PART = "Head"
@@ -81,12 +79,14 @@ local hitMarkerEnabled = true
 local hitMarkerColor = Color3.fromRGB(255,0,0)
 local hitMarkerSize = 9
 local hitMarkerGap = 4
+local hitMarkerDuration = 0.35
 local ActiveHitmarkers = {}
 
 local JUMP_SHOT = false
 
+-- VISUAL STATE
 local cameraFovEnabled = false
-local cameraFovValue = 90
+local cameraFovValue = 120
 local noFogEnabled = false
 local fullbrightEnabled = false
 
@@ -107,19 +107,33 @@ local customHandsColor = Color3.fromRGB(160,32,240)
 local customHandsTransp = 0.55
 local activeLockedArms = {}
 
+local viewModelEnabled = false
+local viewModelX = 0
+local viewModelY = 0
+local viewModelZ = 0
+local viewModelConn = nil
+
+local gunChamsEnabled = false
+local gunChamsColor = Color3.fromRGB(255,80,255)
+
 local skyboxEnabled = false
 local skyboxMode = "None"
 local activeSky = nil
 
 local SKYBOXES = {
-    ["Pink Galaxy"] = "rbxassetid://159454299",
-    ["Night City"] = "rbxassetid://6444884337",
-    ["Aurora"] = "rbxassetid://2459487571",
-    ["Space"] = "rbxassetid://85646454",
-    ["Anime"] = "rbxassetid://5432490141",
-    ["Neon"] = "rbxassetid://7849283454",
+    ["Aurorka"] = "rbxassetid://159454299",
+    ["Galaxy"] = "GOTHBRHACH_MULTI",
+    ["Godly"] = "rbxassetid://16699750981",
+    ["Super Sayien"] = "rbxassetid://116109508364297",
+    ["North Star"] = "rbxassetid://83945069652732",
+    ["Blue Lord"] = "rbxassetid://10974316799",
+    ["Pink Aura"] = "rbxassetid://115980859615239",
+    ["Angel Wing"] = "rbxassetid://90022969696073",
+    ["Sweet Heart"] = "rbxassetid://91724768175470",
+    ["Ethereal Aura"] = "rbxassetid://97041568674250",
 }
 
+-- MOVEMENT STATE
 local speedHackEnabled = false
 local speedValue = 50
 local infJumpEnabled = false
@@ -139,9 +153,6 @@ local airWalkDuration = 3
 local airWalkHeight = 100
 local airWalkKey = Enum.KeyCode.V
 local airWalkBusy = false
-
-local gunChamsEnabled = false
-local gunChamsColor = Color3.fromRGB(255,80,255)
 
 local whitelistEnabled = false
 local whitelist = {}
@@ -627,23 +638,6 @@ local function ColorRow(parent, label, getColor, setColor, yPos)
     return container
 end
 
-local function ButtonRow(parent, label, callback, yPos)
-    local btn = Instance.new("TextButton")
-    btn.Position = UDim2.fromOffset(10, yPos)
-    btn.Size = UDim2.new(1,-20,0,26)
-    btn.BackgroundColor3 = ACCENT
-    btn.BorderSizePixel = 0
-    btn.Text = label
-    btn.TextColor3 = WHITE
-    btn.Font = Enum.Font.Code
-    btn.TextSize = 12
-    btn.AutoButtonColor = false
-    btn.Parent = parent
-    Stroke(btn,1)
-    btn.MouseButton1Click:Connect(callback)
-    return btn
-end
-
 -- MAIN
 local Main = Instance.new("Frame")
 Main.Name = "Main"
@@ -767,9 +761,7 @@ local function Section(parent, title, y)
     return 26
 end
 
--- ============================================================
--- COMBAT (полностью из EpsteinHub V2)
--- ============================================================
+-- COMBAT
 local CombatScroll = Scrolls[1]
 local cY = 0
 
@@ -803,6 +795,7 @@ cY = cY + Section(CombatScroll, "HIT MARKER", cY)
 Checkbox(CombatScroll, "Enable Hit Marker", true, function(v) hitMarkerEnabled = v end, cY); cY = cY + 26
 ColorRow(CombatScroll, "Marker Color", function() return hitMarkerColor end, function(c) hitMarkerColor = c end, cY); cY = cY + 26
 Slider(CombatScroll, "Marker Size", 4, 30, 9, function(v) hitMarkerSize = v end, cY, "px"); cY = cY + 46
+Slider(CombatScroll, "Duration (x10ms)", 1, 100, 35, function(v) hitMarkerDuration = v/100 end, cY, "s"); cY = cY + 46
 
 cY = cY + 6
 cY = cY + Section(CombatScroll, "HIT SOUND", cY)
@@ -830,9 +823,7 @@ Stroke(sBox,1)
 sBox.FocusLost:Connect(function() HIT_SOUND_ID = sBox.Text end)
 cY = cY + 50
 
--- ============================================================
 -- VISUALS
--- ============================================================
 local VisScroll = Scrolls[2]
 local vY = 0
 
@@ -863,6 +854,30 @@ end, vY); vY = vY + 26
 Slider(VisScroll, "Hands Transparency", 0, 100, 55, function(v) customHandsTransp = v/100 end, vY, "%"); vY = vY + 46
 
 vY = vY + 6
+vY = vY + Section(VisScroll, "VIEW MODEL", vY)
+Checkbox(VisScroll, "Enable View Model", false, function(v)
+    viewModelEnabled = v
+    if v then ApplyViewModel() else RemoveViewModel() end
+end, vY); vY = vY + 26
+Slider(VisScroll, "X (x0.1)", -30, 30, 0, function(v)
+    viewModelX = v/10
+    if viewModelEnabled then UpdateViewModel() end
+end, vY); vY = vY + 46
+Slider(VisScroll, "Y (x0.1)", -30, 30, 0, function(v)
+    viewModelY = v/10
+    if viewModelEnabled then UpdateViewModel() end
+end, vY); vY = vY + 46
+Slider(VisScroll, "Z (x0.1)", -30, 30, 0, function(v)
+    viewModelZ = v/10
+    if viewModelEnabled then UpdateViewModel() end
+end, vY); vY = vY + 46
+
+vY = vY + 6
+vY = vY + Section(VisScroll, "GUN CHAMS", vY)
+Checkbox(VisScroll, "Enable Gun Chams", false, function(v) gunChamsEnabled = v end, vY); vY = vY + 26
+ColorRow(VisScroll, "Gun Chams Color", function() return gunChamsColor end, function(c) gunChamsColor = c end, vY); vY = vY + 26
+
+vY = vY + 6
 vY = vY + Section(VisScroll, "SKYBOX", vY)
 Checkbox(VisScroll, "Enable Skybox", false, function(v)
     skyboxEnabled = v
@@ -870,7 +885,7 @@ Checkbox(VisScroll, "Enable Skybox", false, function(v)
     if v then ApplySkybox(skyboxMode) end
 end, vY); vY = vY + 26
 Dropdown(VisScroll, "Skybox Preset",
-    {"None","Epstein","Gothbreach","Pink Galaxy","Night City","Aurora","Space","Anime","Neon"},
+    {"None","Aurorka","Galaxy","Godly","Super Sayien","North Star","Blue Lord","Pink Aura","Angel Wing","Sweet Heart","Ethereal Aura"},
     "None",
     function(v)
         skyboxMode = v
@@ -879,8 +894,10 @@ Dropdown(VisScroll, "Skybox Preset",
 
 vY = vY + 6
 vY = vY + Section(VisScroll, "CAMERA", vY)
-Checkbox(VisScroll, "Custom FOV", false, function(v) cameraFovEnabled = v; if not v then Camera.FieldOfView = 70 end end, vY); vY = vY + 26
-Slider(VisScroll, "FOV Value", 60, 120, 90, function(v) cameraFovValue = v end, vY); vY = vY + 46
+Checkbox(VisScroll, "Custom FOV", false, function(v)
+    cameraFovEnabled = v
+end, vY); vY = vY + 26
+Slider(VisScroll, "FOV Value", 60, 160, 120, function(v) cameraFovValue = v end, vY); vY = vY + 46
 Checkbox(VisScroll, "No Fog", false, function(v)
     noFogEnabled = v
     if v then
@@ -891,11 +908,6 @@ Checkbox(VisScroll, "No Fog", false, function(v)
         Lighting.FogStart = 0
     end
 end, vY); vY = vY + 26
-
-vY = vY + 6
-vY = vY + Section(VisScroll, "GUN CHAMS", vY)
-Checkbox(VisScroll, "Enable Gun Chams", false, function(v) gunChamsEnabled = v end, vY); vY = vY + 26
-ColorRow(VisScroll, "Gun Chams Color", function() return gunChamsColor end, function(c) gunChamsColor = c end, vY); vY = vY + 26
 
 vY = vY + 6
 vY = vY + Section(VisScroll, "WORLD", vY)
@@ -913,9 +925,7 @@ Checkbox(VisScroll, "Fullbright", false, function(v)
     end
 end, vY); vY = vY + 26
 
--- ============================================================
 -- MISC
--- ============================================================
 local MiscScroll = Scrolls[3]
 local mY = 0
 
@@ -988,9 +998,7 @@ Checkbox(MiscScroll, "Show Air Walk Button (mobile)", false, function(v)
     if v then CreateAirWalkButton() else DestroyAirWalkButton() end
 end, mY); mY = mY + 26
 
--- ============================================================
 -- SETTINGS
--- ============================================================
 local SetScroll = Scrolls[4]
 local sY = 0
 
@@ -1193,9 +1201,7 @@ local function IsWhitelisted(plr)
     return whitelist[plr.Name] == true
 end
 
--- ============================================================
--- FOV CIRCLE (Frame — как в EpsteinHub)
--- ============================================================
+-- FOV CIRCLE
 local FOVFrameGui = Instance.new("ScreenGui")
 FOVFrameGui.Name = "AstraFOV"
 FOVFrameGui.ResetOnSpawn = false
@@ -1217,9 +1223,7 @@ FOVStroke.Transparency = 0.3
 local FOVCorner = Instance.new("UICorner", FOVFrame)
 FOVCorner.CornerRadius = UDim.new(1,0)
 
--- ============================================================
--- SNAPLINE (Drawing)
--- ============================================================
+-- SNAPLINE
 local snapLine = nil
 if Drawing then
     snapLine = Drawing.new("Line")
@@ -1229,9 +1233,7 @@ if Drawing then
     snapLine.Color = silentAimSnaplineColor
 end
 
--- ============================================================
--- getSilentTarget (как в EpsteinHub)
--- ============================================================
+-- getSilentTarget
 local function getSilentTarget()
     local best, bd = nil, FOV_RADIUS
     local vp = Camera.ViewportSize
@@ -1262,9 +1264,7 @@ local function getSilentTarget()
     return best
 end
 
--- ============================================================
--- TRACER (Beam — как в EpsteinHub)
--- ============================================================
+-- TRACER
 local function CreateTracer(from, to)
     if not TRACER then return end
     if (to - from).Magnitude < 1 then return end
@@ -1316,9 +1316,7 @@ local function CreateTracer(from, to)
     Debris:AddItem(holder, TRACER_LIFE)
 end
 
--- ============================================================
--- HIT MARKER (в точке попадания трейсера)
--- ============================================================
+-- HIT MARKER
 local function CreateHitmarker(worldPosition)
     if not hitMarkerEnabled then return end
     if not Drawing then return end
@@ -1343,9 +1341,13 @@ local function CreateHitmarker(worldPosition)
     ActiveHitmarkers[markerId] = markerData
 
     task.spawn(function()
-        for alpha = 20, 0, -1 do
-            markerData.Opacity = alpha / 20
-            task.wait(0.015)
+        local duration = hitMarkerDuration
+        if duration < 0.05 then duration = 0.05 end
+        local totalSteps = 20
+        local stepTime = duration / totalSteps
+        for i = totalSteps, 0, -1 do
+            markerData.Opacity = i / totalSteps
+            task.wait(stepTime)
         end
         for _, line in ipairs(markerData.Lines) do
             pcall(function() line:Remove() end)
@@ -1383,9 +1385,7 @@ RS.RenderStepped:Connect(function()
     end
 end)
 
--- ============================================================
--- SILENT AIM (hookfunction castRays из EpsteinHub)
--- ============================================================
+-- SILENT AIM (hookfunction castRays)
 do
     local blaster = ReplicatedStorage:FindFirstChild("Blaster")
     local castRaysFunc = nil
@@ -1463,9 +1463,7 @@ do
     end
 end
 
--- ============================================================
--- JUMP SHOT (getgc canShoot из EpsteinHub)
--- ============================================================
+-- JUMP SHOT
 if type(getgc) == "function" then
     pcall(function()
         for _, v in pairs(getgc(true)) do
@@ -1483,9 +1481,20 @@ if type(getgc) == "function" then
     end)
 end
 
--- ============================================================
+-- FOV (жёсткое удержание)
+task.spawn(function()
+    while true do
+        RS.RenderStepped:Wait()
+        if cameraFovEnabled then
+            local cam = workspace.CurrentCamera
+            if cam and cam.FieldOfView ~= cameraFovValue then
+                cam.FieldOfView = cameraFovValue
+            end
+        end
+    end
+end)
+
 -- SNAPLINE + FOV RENDER
--- ============================================================
 RS.RenderStepped:Connect(function()
     local vp = Camera.ViewportSize
     local cx = vp.X/2
@@ -1517,9 +1526,7 @@ RS.RenderStepped:Connect(function()
     end
 end)
 
--- ============================================================
--- RAPID FIRE (EpsteinHub — через атрибут rateofFire)
--- ============================================================
+-- RAPID FIRE
 local function processToolForRapidFire(tool)
     if not RAPID_FIRE then return end
     if not tool or not tool:IsA("Tool") then return end
@@ -1557,9 +1564,7 @@ task.spawn(function()
     end
 end)
 
--- ============================================================
 -- CUSTOM HANDS
--- ============================================================
 local TARGET_ARM_NAMES = {
     ["RightArm"] = true,
     ["LeftArm"] = true,
@@ -1645,9 +1650,41 @@ LP.CharacterAdded:Connect(function()
     end
 end)
 
--- ============================================================
+-- VIEW MODEL
+function UpdateViewModel()
+    if not viewModelEnabled then return end
+    local char = LP.Character
+    if not char then return end
+    local tool = char:FindFirstChildOfClass("Tool")
+    if not tool then return end
+    local toolWorld = workspace:FindFirstChild(tool.Name)
+    if not toolWorld then return end
+    pcall(function()
+        toolWorld:PivotTo(Camera.CFrame * CFrame.new(viewModelX, viewModelY, viewModelZ))
+    end)
+end
+
+function ApplyViewModel()
+    if viewModelConn then viewModelConn:Disconnect(); viewModelConn = nil end
+    viewModelConn = RS.RenderStepped:Connect(function()
+        if not viewModelEnabled then return end
+        local char = LP.Character
+        if not char then return end
+        local tool = char:FindFirstChildOfClass("Tool")
+        if not tool then return end
+        local toolWorld = workspace:FindFirstChild(tool.Name)
+        if not toolWorld then return end
+        pcall(function()
+            toolWorld:PivotTo(Camera.CFrame * CFrame.new(viewModelX, viewModelY, viewModelZ))
+        end)
+    end)
+end
+
+function RemoveViewModel()
+    if viewModelConn then viewModelConn:Disconnect(); viewModelConn = nil end
+end
+
 -- SKYBOX
--- ============================================================
 function ApplySkybox(name)
     if activeSky then activeSky:Destroy(); activeSky = nil end
     if name == "None" then return end
@@ -1660,7 +1697,7 @@ function ApplySkybox(name)
 
     local s = Instance.new("Sky")
 
-    if name == "Gothbreach" then
+    if name == "Galaxy" then
         s.SkyboxFt = "rbxassetid://99674108178510"
         s.SkyboxBk = "rbxassetid://76898653037615"
         s.SkyboxLf = "rbxassetid://78775818685659"
@@ -1675,10 +1712,6 @@ function ApplySkybox(name)
         Lighting.Ambient = Color3.fromRGB(128,128,128)
         Lighting.OutdoorAmbient = Color3.fromRGB(128,128,128)
         Lighting.ColorShift_Top = Color3.fromRGB(0,0,0)
-    elseif name == "Epstein" then
-        local id = "rbxassetid://159454299"
-        s.SkyboxBk = id; s.SkyboxDn = id; s.SkyboxFt = id
-        s.SkyboxLf = id; s.SkyboxRt = id; s.SkyboxUp = id
     else
         local id = SKYBOXES[name]
         if id then
@@ -1691,9 +1724,7 @@ function ApplySkybox(name)
     activeSky = s
 end
 
--- ============================================================
 -- ESP
--- ============================================================
 local function createESP(player)
     if espCache[player] then return end
     if not Drawing then return end
@@ -1808,15 +1839,10 @@ RS.RenderStepped:Connect(function()
     end
 end)
 
--- ============================================================
 -- MAIN HEARTBEAT
--- ============================================================
 local wasInAirBhop = false
 
 RS.Heartbeat:Connect(function(dt)
-    if cameraFovEnabled and Camera.FieldOfView ~= cameraFovValue then
-        Camera.FieldOfView = cameraFovValue
-    end
     if noFogEnabled and Lighting.FogEnd ~= 1e6 then
         Lighting.FogEnd = 1e6
         Lighting.FogStart = 1e5
