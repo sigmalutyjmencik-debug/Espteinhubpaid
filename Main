@@ -1,8 +1,5 @@
--- Project Astra v13 | t.me/epsteinhub
+-- Project Astra v13.1 | t.me/epsteinhub
 
--- ============================================================
--- ЭТАП 1: БАЗА (создаёт GUI сразу, до всего остального)
--- ============================================================
 local UIS = game:GetService("UserInputService")
 local RS = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -15,7 +12,6 @@ local LP = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local GUI_PARENT = game:GetService("CoreGui")
 
--- Уборка старых
 for _, n in ipairs({"ProjectAstra","AstraFOV","AstraFreezeUI","AstraTPButton","AstraAirWalkButton"}) do
     local old = GUI_PARENT:FindFirstChild(n)
     if old then old:Destroy() end
@@ -31,7 +27,7 @@ local GRAY = Color3.fromRGB(145,145,150)
 local ACCENT = Color3.fromRGB(255,25,120)
 
 -- ============================================================
--- СОЗДАЁМ ГЛАВНЫЙ GUI СРАЗУ
+-- GUI (создаём первым делом)
 -- ============================================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "ProjectAstra"
@@ -61,7 +57,7 @@ local function CenterMain()
 end
 CenterMain()
 
-local Stroke = function(parent, thickness)
+local function Stroke(parent, thickness)
     local s = Instance.new("UIStroke")
     s.Color = ACCENT
     s.Thickness = thickness or 1
@@ -71,7 +67,7 @@ local Stroke = function(parent, thickness)
 end
 Stroke(Main, 1.5)
 
-local MakeText = function(parent, value, pos, size, ts, col)
+local function MakeText(parent, value, pos, size, ts, col)
     local l = Instance.new("TextLabel")
     l.Position = pos
     l.Size = size
@@ -180,7 +176,6 @@ for i,name in ipairs(TabNames) do
     Scrolls[i] = scroll
 end
 
--- Side panel (Toggle UI / Lock UI)
 local Side = Instance.new("Frame")
 Side.Size = UDim2.fromOffset(161,87)
 Side.Position = UDim2.fromOffset(68,185)
@@ -234,7 +229,6 @@ LockButton.MouseButton1Click:Connect(function()
     LockButton.Text = Locked and "Unlock UI" or "Lock UI"
 end)
 
--- Drag
 local dragging = false
 local dragStart, startPos
 TitleBar.InputBegan:Connect(function(i)
@@ -257,7 +251,6 @@ UIS.InputEnded:Connect(function(i)
     end
 end)
 
--- Tab switching
 local function SelectTab(index)
     for i,page in ipairs(Pages) do
         page.Visible = (i == index)
@@ -272,10 +265,8 @@ end
 SelectTab(1)
 
 -- ============================================================
--- ЭТАП 2: ВСЯ ЛОГИКА (после GUI)
--- ============================================================
-
 -- STATE
+-- ============================================================
 local SILENT_AIM = false
 local HIT_CHANCE = 95
 local HIT_PART = "Head"
@@ -301,6 +292,16 @@ local hitMarkerGap = 4
 local hitMarkerDuration = 0.35
 local ActiveHitmarkers = {}
 local JUMP_SHOT = false
+
+local instantHitEnabled = false
+local noRecoilEnabled = false
+local noSpreadEnabled = false
+local instantReloadEnabled = false
+local autoReloadEnabled = false
+local noEquipDelayEnabled = false
+local bulletSpeedValue = 5000
+local fullAutoEnabled = false
+local lastReloadTime = 0
 
 local cameraFovEnabled = false
 local cameraFovValue = 120
@@ -379,7 +380,9 @@ local keybinds = {
     Freeze = Enum.KeyCode.X,
 }
 
+-- ============================================================
 -- UI COMPONENTS
+-- ============================================================
 local function Checkbox(parent, label, default, callback, yPos)
     local container = Instance.new("Frame")
     container.Position = UDim2.fromOffset(10, yPos)
@@ -614,8 +617,9 @@ local function ColorRow(parent, label, getColor, setColor, yPos)
     Stroke(btn,1)
 
     btn.MouseButton1Click:Connect(function()
-        btn.BackgroundColor3 = ACCENT
-        setColor(ACCENT)
+        local newColor = Color3.fromRGB(math.random(50,255), math.random(50,255), math.random(50,255))
+        btn.BackgroundColor3 = newColor
+        setColor(newColor)
     end)
     return container
 end
@@ -632,7 +636,9 @@ local function Section(parent, title, y)
     return 26
 end
 
+-- ============================================================
 -- COMBAT
+-- ============================================================
 local CombatScroll = Scrolls[1]
 local cY = 0
 
@@ -651,6 +657,17 @@ Checkbox(CombatScroll, "Enable Rapid Fire", false, function(v) RAPID_FIRE = v en
 Slider(CombatScroll, "Rate Value (x100k)", 1, 100, 100, function(v) RAPID_VALUE = v * 100000 end, cY); cY = cY + 46
 
 cY = cY + 6
+cY = cY + Section(CombatScroll, "WEAPON (RUSTED)", cY)
+Checkbox(CombatScroll, "Instant Hit", false, function(v) instantHitEnabled = v end, cY); cY = cY + 26
+Checkbox(CombatScroll, "No Recoil", false, function(v) noRecoilEnabled = v end, cY); cY = cY + 26
+Checkbox(CombatScroll, "No Spread", false, function(v) noSpreadEnabled = v end, cY); cY = cY + 26
+Checkbox(CombatScroll, "Instant Reload", false, function(v) instantReloadEnabled = v end, cY); cY = cY + 26
+Checkbox(CombatScroll, "Auto Reload", false, function(v) autoReloadEnabled = v end, cY); cY = cY + 26
+Checkbox(CombatScroll, "No Equip Delay", false, function(v) noEquipDelayEnabled = v end, cY); cY = cY + 26
+Checkbox(CombatScroll, "Full Auto", false, function(v) fullAutoEnabled = v end, cY); cY = cY + 26
+Slider(CombatScroll, "Bullet Speed", 500, 5000, 5000, function(v) bulletSpeedValue = v end, cY); cY = cY + 46
+
+cY = cY + 6
 cY = cY + Section(CombatScroll, "BULLET TRACER", cY)
 Checkbox(CombatScroll, "Enable Tracer", false, function(v) TRACER = v end, cY); cY = cY + 26
 Slider(CombatScroll, "Lifetime", 1, 10, 3, function(v) TRACER_LIFE = v end, cY, "s"); cY = cY + 46
@@ -667,7 +684,9 @@ cY = cY + Section(CombatScroll, "HIT SOUND", cY)
 Checkbox(CombatScroll, "Enable Hit Sound", false, function(v) HIT_SOUND = v end, cY); cY = cY + 26
 Slider(CombatScroll, "Volume", 0, 10, 1, function(v) HIT_SOUND_VOL = v end, cY); cY = cY + 46
 
+-- ============================================================
 -- VISUALS
+-- ============================================================
 local VisScroll = Scrolls[2]
 local vY = 0
 
@@ -723,8 +742,7 @@ Slider(VisScroll, "FOV Value", 60, 160, 120, function(v) cameraFovValue = v end,
 Checkbox(VisScroll, "No Fog", false, function(v)
     noFogEnabled = v
     if v then
-        Lighting.FogEnd = 1e6
-        Lighting.FogStart = 1e5
+        Lighting.FogEnd = 1e6        Lighting.FogStart = 1e5
     else
         Lighting.FogEnd = 100000
         Lighting.FogStart = 0
@@ -747,7 +765,9 @@ Checkbox(VisScroll, "Fullbright", false, function(v)
     end
 end, vY); vY = vY + 26
 
+-- ============================================================
 -- MISC
+-- ============================================================
 local MiscScroll = Scrolls[3]
 local mY = 0
 
@@ -791,17 +811,19 @@ KeybindRow(MiscScroll, "Air Walk Keybind", airWalkKey, function(k) airWalkKey = 
 Slider(MiscScroll, "Air Walk Duration", 1, 10, 3, function(v) airWalkDuration = v end, mY, "s"); mY = mY + 46
 Slider(MiscScroll, "Air Walk Height", 20, 300, 100, function(v) airWalkHeight = v end, mY); mY = mY + 46
 
+-- ============================================================
 -- SETTINGS
+-- ============================================================
 local SetScroll = Scrolls[4]
 local sY = 0
 
 sY = sY + Section(SetScroll, "INFO", sY)
-MakeText(SetScroll, "Project Astra v13", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 13, ACCENT); sY = sY + 24
+MakeText(SetScroll, "Project Astra v13.1", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 13, ACCENT); sY = sY + 24
 MakeText(SetScroll, "t.me/epsteinhub", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 13, WHITE); sY = sY + 24
-MakeText(SetScroll, "Insert — toggle UI", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 12, GRAY); sY = sY + 24
-MakeText(SetScroll, "LMB на иконке EPSTEIN — toggle UI", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 11, GRAY); sY = sY + 24
 
+-- ============================================================
 -- FOV CIRCLE
+-- ============================================================
 local FOVFrameGui = Instance.new("ScreenGui")
 FOVFrameGui.Name = "AstraFOV"
 FOVFrameGui.ResetOnSpawn = false
@@ -822,7 +844,9 @@ FOVStroke.Transparency = 0.3
 local FOVCorner = Instance.new("UICorner", FOVFrame)
 FOVCorner.CornerRadius = UDim.new(1,0)
 
+-- ============================================================
 -- SNAPLINE
+-- ============================================================
 local snapLine = nil
 if Drawing then
     snapLine = Drawing.new("Line")
@@ -832,7 +856,9 @@ if Drawing then
     snapLine.Color = silentAimSnaplineColor
 end
 
+-- ============================================================
 -- getSilentTarget
+-- ============================================================
 local function getSilentTarget()
     local best, bd = nil, FOV_RADIUS
     local vp = Camera.ViewportSize
@@ -862,7 +888,9 @@ local function getSilentTarget()
     return best
 end
 
+-- ============================================================
 -- TRACER
+-- ============================================================
 local function CreateTracer(from, to)
     if not TRACER then return end
     if (to - from).Magnitude < 1 then return end
@@ -914,7 +942,9 @@ local function CreateTracer(from, to)
     Debris:AddItem(holder, TRACER_LIFE)
 end
 
+-- ============================================================
 -- HIT MARKER
+-- ============================================================
 local function CreateHitmarker(worldPosition)
     if not hitMarkerEnabled then return end
     if not Drawing then return end
@@ -983,7 +1013,9 @@ RS.RenderStepped:Connect(function()
     end
 end)
 
+-- ============================================================
 -- SILENT AIM
+-- ============================================================
 do
     local blaster = ReplicatedStorage:FindFirstChild("Blaster")
     local castRaysFunc = nil
@@ -1061,7 +1093,9 @@ do
     end
 end
 
+-- ============================================================
 -- JUMP SHOT
+-- ============================================================
 if type(getgc) == "function" then
     pcall(function()
         for _, v in pairs(getgc(true)) do
@@ -1079,6 +1113,147 @@ if type(getgc) == "function" then
     end)
 end
 
+-- ============================================================
+-- WEAPON (RUSTED)
+-- ============================================================
+task.spawn(function()
+    task.wait(2)
+    pcall(function()
+        local blaster = ReplicatedStorage:FindFirstChild("Blaster")
+        if not blaster then return end
+
+        local scripts = blaster:FindFirstChild("Scripts")
+        if not scripts then return end
+
+        pcall(function()
+            local util = blaster:FindFirstChild("Utility")
+            local getRayDirections = util and util:FindFirstChild("getRayDirections")
+            if getRayDirections then
+                local original = require(getRayDirections)
+                package.loaded[getRayDirections] = function(cf, count, spread, seed)
+                    if noSpreadEnabled or SILENT_AIM then
+                        local dirs = table.create(count)
+                        local dir = cf.LookVector
+                        for i = 1, count do dirs[i] = dir end
+                        return dirs
+                    end
+                    return original(cf, count, spread, seed)
+                end
+            end
+        end)
+
+        local okBc, blasterController = pcall(function()
+            return require(scripts:FindFirstChild("BlasterController"))
+        end)
+        if not okBc or not blasterController then return end
+
+        pcall(function()
+            local recoiler = scripts:FindFirstChild("CameraRecoiler")
+            if recoiler then
+                local CameraRecoiler = require(recoiler)
+                local oldRecoil = CameraRecoiler.recoil
+                CameraRecoiler.recoil = function(...)
+                    if noRecoilEnabled then return end
+                    return oldRecoil(...)
+                end
+            end
+        end)
+
+        if blasterController.reload then
+            local oldReload = blasterController.reload
+            blasterController.reload = function(self)
+                if not (instantReloadEnabled or autoReloadEnabled) then
+                    return oldReload(self)
+                end
+                if tick() - lastReloadTime < 0.15 then return end
+                lastReloadTime = tick()
+
+                local maxAmmo = self.blaster and self.blaster:GetAttribute("magazineSize") or 30
+                self.ammo = maxAmmo
+                self.reloading = false
+                pcall(function()
+                    if self.guiController then
+                        self.guiController:setAmmo(maxAmmo)
+                        self.guiController:setReloading(false)
+                    end
+                end)
+                pcall(function()
+                    local remotes = blaster:FindFirstChild("Remotes")
+                    local reloadRemote = remotes and remotes:FindFirstChild("Reload")
+                    if reloadRemote then reloadRemote:FireServer(self.blaster) end
+                end)
+            end
+        end
+
+        if blasterController.canShoot then
+            local oldCanShoot = blasterController.canShoot
+            blasterController.canShoot = function(self)
+                if noEquipDelayEnabled then
+                    self.canShootAfterEquip = true
+                    self.isWeaponBlocked = false
+                end
+
+                if (instantReloadEnabled or autoReloadEnabled) and self.ammo ~= nil and self.ammo <= 0 then
+                    pcall(function() blasterController.reload(self) end)
+                end
+
+                if noEquipDelayEnabled or instantReloadEnabled or autoReloadEnabled then
+                    local sc = _G.SprintController
+                    local sprinting = sc and sc.isSprinting and sc.isSprinting()
+                    local hasAmmo = (self.ammo and self.ammo > 0) or instantReloadEnabled or autoReloadEnabled
+                    return self:isHumanoidAlive() and self.equipped and hasAmmo and not sprinting
+                end
+
+                return oldCanShoot(self)
+            end
+        end
+
+        if blasterController.startShooting then
+            local oldStartShooting = blasterController.startShooting
+            blasterController.startShooting = function(self)
+                if fullAutoEnabled then
+                    pcall(function()
+                        if self.blaster then self.blaster:SetAttribute("fireMode", "Auto") end
+                    end)
+                end
+                return oldStartShooting(self)
+            end
+        end
+
+        if blasterController.equip then
+            local oldEquip = blasterController.equip
+            blasterController.equip = function(self)
+                oldEquip(self)
+                if noEquipDelayEnabled then self.canShootAfterEquip = true end
+            end
+        end
+    end)
+end)
+
+-- Instant Hit loop
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        if instantHitEnabled then
+            local char = LP.Character
+            if char then
+                local tool = char:FindFirstChildOfClass("Tool")
+                if tool then
+                    pcall(function()
+                        local attrs = tool:GetAttributes()
+                        for name, _ in pairs(attrs) do
+                            local lower = name:lower()
+                            if lower == "bulletspeed" or lower == "bulletvelocity" or lower == "projectilespeed" then
+                                tool:SetAttribute(name, bulletSpeedValue)
+                            end
+                        end
+                    end)
+                end
+            end
+        end
+    end
+end)
+
 -- FOV hold
 task.spawn(function()
     while true do
@@ -1092,7 +1267,6 @@ task.spawn(function()
     end
 end)
 
--- SNAPLINE + FOV
 RS.RenderStepped:Connect(function()
     local vp = Camera.ViewportSize
     local cx = vp.X/2
@@ -1124,7 +1298,9 @@ RS.RenderStepped:Connect(function()
     end
 end)
 
+-- ============================================================
 -- RAPID FIRE
+-- ============================================================
 local function processToolForRapidFire(tool)
     if not RAPID_FIRE then return end
     if not tool or not tool:IsA("Tool") then return end
@@ -1162,7 +1338,9 @@ task.spawn(function()
     end
 end)
 
+-- ============================================================
 -- CUSTOM HANDS
+-- ============================================================
 local TARGET_ARM_NAMES = {
     ["RightArm"] = true,
     ["LeftArm"] = true,
@@ -1248,7 +1426,9 @@ LP.CharacterAdded:Connect(function()
     end
 end)
 
+-- ============================================================
 -- VIEW MODEL
+-- ============================================================
 function ApplyViewModel()
     if viewModelConn then viewModelConn:Disconnect(); viewModelConn = nil end
     if not viewModelEnabled then return end
@@ -1277,7 +1457,9 @@ function RemoveViewModel()
     if viewModelConn then viewModelConn:Disconnect(); viewModelConn = nil end
 end
 
+-- ============================================================
 -- SKYBOX
+-- ============================================================
 function ApplySkybox(name)
     if activeSky then activeSky:Destroy(); activeSky = nil end
     if name == "None" then return end
@@ -1317,7 +1499,9 @@ function ApplySkybox(name)
     activeSky = s
 end
 
+-- ============================================================
 -- ESP
+-- ============================================================
 local function createESP(player)
     if espCache[player] then return end
     if not Drawing then return end
@@ -1432,7 +1616,9 @@ RS.RenderStepped:Connect(function()
     end
 end)
 
+-- ============================================================
 -- MAIN LOOP
+-- ============================================================
 local wasInAirBhop = false
 
 RS.Heartbeat:Connect(function(dt)
@@ -1460,11 +1646,6 @@ RS.Heartbeat:Connect(function(dt)
 
     if speedHackEnabled and hum.WalkSpeed ~= speedValue then
         hum.WalkSpeed = speedValue
-    end
-
-    if bigJumpEnabled then
-        hum.UseJumpPower = true
-        if hum.JumpPower ~= bigJumpPower then hum.JumpPower = bigJumpPower end
     end
 
     if flyEnabled then
