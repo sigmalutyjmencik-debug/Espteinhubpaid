@@ -1,4 +1,4 @@
--- Project Astra v13.1 | t.me/epsteinhub
+-- Project Astra v13.2 | t.me/epsteinhub
 
 local UIS = game:GetService("UserInputService")
 local RS = game:GetService("RunService")
@@ -27,7 +27,7 @@ local GRAY = Color3.fromRGB(145,145,150)
 local ACCENT = Color3.fromRGB(255,25,120)
 
 -- ============================================================
--- GUI (создаём первым делом)
+-- GUI
 -- ============================================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "ProjectAstra"
@@ -742,7 +742,8 @@ Slider(VisScroll, "FOV Value", 60, 160, 120, function(v) cameraFovValue = v end,
 Checkbox(VisScroll, "No Fog", false, function(v)
     noFogEnabled = v
     if v then
-        Lighting.FogEnd = 1e6        Lighting.FogStart = 1e5
+        Lighting.FogEnd = 1e6
+        Lighting.FogStart = 1e5
     else
         Lighting.FogEnd = 100000
         Lighting.FogStart = 0
@@ -797,6 +798,9 @@ KeybindRow(MiscScroll, "Fly Keybind", keybinds.Fly, function(k) keybinds.Fly = k
 
 mY = mY + 6
 mY = mY + Section(MiscScroll, "TELEPORT", mY)
+Checkbox(MiscScroll, "Show TP Button (mobile)", false, function(v)
+    if v then CreateTPButton() else DestroyTPButton() end
+end, mY); mY = mY + 26
 KeybindRow(MiscScroll, "TP Keybind (PC)", tpKey, function(k) tpKey = k end, mY); mY = mY + 26
 Slider(MiscScroll, "TP Distance", 10, 500, 100, function(v) tpDistance = v end, mY); mY = mY + 46
 
@@ -806,10 +810,19 @@ Checkbox(MiscScroll, "Enable Freeze (hold key)", false, function(v) freezeEnable
 KeybindRow(MiscScroll, "Freeze Keybind", keybinds.Freeze, function(k) keybinds.Freeze = k end, mY); mY = mY + 26
 
 mY = mY + 6
+mY = mY + Section(MiscScroll, "MOBILE FREEZE BUTTON", mY)
+Checkbox(MiscScroll, "Show Mobile Freeze Button", false, function(v)
+    if v then CreateFreezeButton() else DestroyFreezeButton() end
+end, mY); mY = mY + 26
+
+mY = mY + 6
 mY = mY + Section(MiscScroll, "AIR WALK", mY)
 KeybindRow(MiscScroll, "Air Walk Keybind", airWalkKey, function(k) airWalkKey = k end, mY); mY = mY + 26
 Slider(MiscScroll, "Air Walk Duration", 1, 10, 3, function(v) airWalkDuration = v end, mY, "s"); mY = mY + 46
 Slider(MiscScroll, "Air Walk Height", 20, 300, 100, function(v) airWalkHeight = v end, mY); mY = mY + 46
+Checkbox(MiscScroll, "Show Air Walk Button (mobile)", false, function(v)
+    if v then CreateAirWalkButton() else DestroyAirWalkButton() end
+end, mY); mY = mY + 26
 
 -- ============================================================
 -- SETTINGS
@@ -818,7 +831,7 @@ local SetScroll = Scrolls[4]
 local sY = 0
 
 sY = sY + Section(SetScroll, "INFO", sY)
-MakeText(SetScroll, "Project Astra v13.1", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 13, ACCENT); sY = sY + 24
+MakeText(SetScroll, "Project Astra v13.2", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 13, ACCENT); sY = sY + 24
 MakeText(SetScroll, "t.me/epsteinhub", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 13, WHITE); sY = sY + 24
 
 -- ============================================================
@@ -1230,7 +1243,6 @@ task.spawn(function()
     end)
 end)
 
--- Instant Hit loop
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -1254,7 +1266,6 @@ task.spawn(function()
     end
 end)
 
--- FOV hold
 task.spawn(function()
     while true do
         RS.RenderStepped:Wait()
@@ -1751,6 +1762,144 @@ function DoTeleport()
     if not root then return end
     root.CFrame = CFrame.new(root.Position + Camera.CFrame.LookVector * tpDistance) * root.CFrame.Rotation
     root.Velocity = Vector3.zero
+end
+
+-- ============================================================
+-- MOBILE BUTTONS
+-- ============================================================
+local freezeBtnGui, freezeBtn
+local tpBtnGui, tpBtn
+local awBtnGui, awBtn
+
+local function SetupDraggable(btn)
+    local dragging, dragInput, dragStart, startPos
+    btn.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = true; dragStart = i.Position; startPos = btn.Position
+            i.Changed:Connect(function()
+                if i.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    btn.InputChanged:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
+            dragInput = i
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if i == dragInput and dragging then
+            local d = i.Position - dragStart
+            btn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+        end
+    end)
+end
+
+function CreateFreezeButton()
+    if freezeBtnGui then return end
+    freezeBtnGui = Instance.new("ScreenGui")
+    freezeBtnGui.Name = "AstraFreezeUI"
+    freezeBtnGui.ResetOnSpawn = false
+    freezeBtnGui.Parent = GUI_PARENT
+
+    freezeBtn = Instance.new("TextButton")
+    freezeBtn.Size = UDim2.new(0,110,0,45)
+    freezeBtn.Position = UDim2.new(0.1,0,0.4,0)
+    freezeBtn.BackgroundColor3 = Color3.fromRGB(30,35,45)
+    freezeBtn.BorderColor3 = Color3.fromRGB(255,80,180)
+    freezeBtn.BorderSizePixel = 2
+    freezeBtn.Text = "Freeze Up"
+    freezeBtn.TextColor3 = Color3.fromRGB(230,230,230)
+    freezeBtn.Font = Enum.Font.SourceSansBold
+    freezeBtn.TextSize = 16
+    freezeBtn.ZIndex = 99999
+    freezeBtn.Parent = freezeBtnGui
+    Instance.new("UICorner",freezeBtn).CornerRadius = UDim.new(0,6)
+    SetupDraggable(freezeBtn)
+
+    local pressed = false
+    freezeBtn.MouseButton1Click:Connect(function()
+        local char = LP.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        pressed = not pressed
+        if pressed then
+            freezeTargetCF = root.CFrame * CFrame.new(0,50,0)
+            freezeBtn.Text = "UNFREEZE"
+            freezeBtn.BackgroundColor3 = Color3.fromRGB(180,40,80)
+            freezeBtn.BorderColor3 = Color3.fromRGB(255,50,120)
+            freezeEnabled = true
+        else
+            freezeEnabled = false
+            freezeTargetCF = nil
+            freezeBtn.Text = "Freeze Up"
+            freezeBtn.BackgroundColor3 = Color3.fromRGB(30,35,45)
+            freezeBtn.BorderColor3 = Color3.fromRGB(255,80,180)
+        end
+    end)
+end
+
+function DestroyFreezeButton()
+    if freezeBtnGui then freezeBtnGui:Destroy(); freezeBtnGui = nil; freezeBtn = nil end
+    freezeEnabled = false
+    freezeTargetCF = nil
+end
+
+function CreateTPButton()
+    if tpBtnGui then return end
+    tpBtnGui = Instance.new("ScreenGui")
+    tpBtnGui.Name = "AstraTPButton"
+    tpBtnGui.ResetOnSpawn = false
+    tpBtnGui.Parent = GUI_PARENT
+
+    tpBtn = Instance.new("TextButton")
+    tpBtn.Size = UDim2.new(0,110,0,45)
+    tpBtn.Position = UDim2.new(0.1,0,0.5,0)
+    tpBtn.BackgroundColor3 = Color3.fromRGB(25,30,40)
+    tpBtn.BorderColor3 = Color3.fromRGB(255,80,180)
+    tpBtn.BorderSizePixel = 2
+    tpBtn.Text = "TP "..tpDistance.." Studs"
+    tpBtn.TextColor3 = Color3.fromRGB(240,240,240)
+    tpBtn.Font = Enum.Font.Code
+    tpBtn.TextSize = 14
+    tpBtn.ZIndex = 99999
+    tpBtn.Parent = tpBtnGui
+    Instance.new("UICorner",tpBtn).CornerRadius = UDim.new(0,5)
+    SetupDraggable(tpBtn)
+
+    tpBtn.MouseButton1Click:Connect(function() DoTeleport() end)
+end
+
+function DestroyTPButton()
+    if tpBtnGui then tpBtnGui:Destroy(); tpBtnGui = nil; tpBtn = nil end
+end
+
+function CreateAirWalkButton()
+    if awBtnGui then return end
+    awBtnGui = Instance.new("ScreenGui")
+    awBtnGui.Name = "AstraAirWalkButton"
+    awBtnGui.ResetOnSpawn = false
+    awBtnGui.Parent = GUI_PARENT
+
+    awBtn = Instance.new("TextButton")
+    awBtn.Size = UDim2.new(0,130,0,45)
+    awBtn.Position = UDim2.new(0.1,0,0.5,0)
+    awBtn.BackgroundColor3 = Color3.fromRGB(25,30,40)
+    awBtn.BorderColor3 = Color3.fromRGB(255,80,180)
+    awBtn.BorderSizePixel = 2
+    awBtn.Text = "Air Walk"
+    awBtn.TextColor3 = Color3.fromRGB(240,240,240)
+    awBtn.Font = Enum.Font.Code
+    awBtn.TextSize = 13
+    awBtn.ZIndex = 99999
+    awBtn.Parent = awBtnGui
+    Instance.new("UICorner",awBtn).CornerRadius = UDim.new(0,6)
+    SetupDraggable(awBtn)
+
+    awBtn.MouseButton1Click:Connect(function() DoAirWalk() end)
+end
+
+function DestroyAirWalkButton()
+    if awBtnGui then awBtnGui:Destroy(); awBtnGui = nil; awBtn = nil end
 end
 
 UIS.InputBegan:Connect(function(inp, gpe)
