@@ -1,4 +1,4 @@
--- Project Astra v10 | t.me/epsteinhub
+-- Project Astra v11 | t.me/epsteinhub
 
 local UIS = game:GetService("UserInputService")
 local RS = game:GetService("RunService")
@@ -84,6 +84,17 @@ local ActiveHitmarkers = {}
 
 local JUMP_SHOT = false
 
+-- WEAPON STATE (Rusted)
+local instantHitEnabled = false
+local noRecoilEnabled = false
+local noSpreadEnabled = false
+local instantReloadEnabled = false
+local autoReloadEnabled = false
+local noEquipDelayEnabled = false
+local bulletSpeedValue = 5000
+local fullAutoEnabled = false
+local lastReloadTime = 0
+
 -- VISUAL STATE
 local cameraFovEnabled = false
 local cameraFovValue = 120
@@ -108,9 +119,9 @@ local customHandsTransp = 0.55
 local activeLockedArms = {}
 
 local viewModelEnabled = false
-local viewModelX = 0
-local viewModelY = 0
-local viewModelZ = 0
+local viewModelX = 5
+local viewModelY = -2
+local viewModelZ = -8
 local viewModelConn = nil
 
 local gunChamsEnabled = false
@@ -122,7 +133,7 @@ local activeSky = nil
 
 local SKYBOXES = {
     ["Aurorka"] = "rbxassetid://159454299",
-    ["Galaxy"] = "GOTHBRHACH_MULTI",
+    ["Galaxy"] = "MULTI",
     ["Godly"] = "rbxassetid://16699750981",
     ["Super Sayien"] = "rbxassetid://116109508364297",
     ["North Star"] = "rbxassetid://83945069652732",
@@ -133,7 +144,7 @@ local SKYBOXES = {
     ["Ethereal Aura"] = "rbxassetid://97041568674250",
 }
 
--- MOVEMENT STATE
+-- MOVEMENT
 local speedHackEnabled = false
 local speedValue = 50
 local infJumpEnabled = false
@@ -785,6 +796,17 @@ Checkbox(CombatScroll, "Enable Rapid Fire", false, function(v) RAPID_FIRE = v en
 Slider(CombatScroll, "Rate Value (x100k)", 1, 100, 100, function(v) RAPID_VALUE = v * 100000 end, cY); cY = cY + 46
 
 cY = cY + 6
+cY = cY + Section(CombatScroll, "WEAPON (RUSTED)", cY)
+Checkbox(CombatScroll, "Instant Hit", false, function(v) instantHitEnabled = v end, cY); cY = cY + 26
+Checkbox(CombatScroll, "No Recoil", false, function(v) noRecoilEnabled = v end, cY); cY = cY + 26
+Checkbox(CombatScroll, "No Spread", false, function(v) noSpreadEnabled = v end, cY); cY = cY + 26
+Checkbox(CombatScroll, "Instant Reload", false, function(v) instantReloadEnabled = v end, cY); cY = cY + 26
+Checkbox(CombatScroll, "Auto Reload", false, function(v) autoReloadEnabled = v end, cY); cY = cY + 26
+Checkbox(CombatScroll, "No Equip Delay", false, function(v) noEquipDelayEnabled = v end, cY); cY = cY + 26
+Checkbox(CombatScroll, "Full Auto", false, function(v) fullAutoEnabled = v end, cY); cY = cY + 26
+Slider(CombatScroll, "Bullet Speed", 500, 5000, 5000, function(v) bulletSpeedValue = v end, cY); cY = cY + 46
+
+cY = cY + 6
 cY = cY + Section(CombatScroll, "BULLET TRACER", cY)
 Checkbox(CombatScroll, "Enable Tracer", false, function(v) TRACER = v end, cY); cY = cY + 26
 Slider(CombatScroll, "Lifetime", 1, 10, 3, function(v) TRACER_LIFE = v end, cY, "s"); cY = cY + 46
@@ -859,17 +881,14 @@ Checkbox(VisScroll, "Enable View Model", false, function(v)
     viewModelEnabled = v
     if v then ApplyViewModel() else RemoveViewModel() end
 end, vY); vY = vY + 26
-Slider(VisScroll, "X (x0.1)", -30, 30, 0, function(v)
-    viewModelX = v/10
-    if viewModelEnabled then UpdateViewModel() end
+Slider(VisScroll, "X", -20, 20, 5, function(v)
+    viewModelX = v
 end, vY); vY = vY + 46
-Slider(VisScroll, "Y (x0.1)", -30, 30, 0, function(v)
-    viewModelY = v/10
-    if viewModelEnabled then UpdateViewModel() end
+Slider(VisScroll, "Y", -20, 20, -2, function(v)
+    viewModelY = v
 end, vY); vY = vY + 46
-Slider(VisScroll, "Z (x0.1)", -30, 30, 0, function(v)
-    viewModelZ = v/10
-    if viewModelEnabled then UpdateViewModel() end
+Slider(VisScroll, "Z", -20, 20, -8, function(v)
+    viewModelZ = v
 end, vY); vY = vY + 46
 
 vY = vY + 6
@@ -1481,7 +1500,153 @@ if type(getgc) == "function" then
     end)
 end
 
--- FOV (жёсткое удержание)
+-- WEAPON (RUSTED)
+task.spawn(function()
+    task.wait(2)
+    pcall(function()
+        local blaster = ReplicatedStorage:FindFirstChild("Blaster")
+        if not blaster then return end
+
+        local scripts = blaster:FindFirstChild("Scripts")
+        if not scripts then return end
+
+        -- NoSpread
+        pcall(function()
+            local util = blaster:FindFirstChild("Utility")
+            local getRayDirections = util and util:FindFirstChild("getRayDirections")
+            if getRayDirections then
+                local original = require(getRayDirections)
+                package.loaded[getRayDirections] = function(cf, count, spread, seed)
+                    if noSpreadEnabled or SILENT_AIM then
+                        local dirs = table.create(count)
+                        local dir = cf.LookVector
+                        for i = 1, count do dirs[i] = dir end
+                        return dirs
+                    end
+                    return original(cf, count, spread, seed)
+                end
+            end
+        end)
+
+        -- BlasterController
+        local okBc, blasterController = pcall(function()
+            return require(scripts:FindFirstChild("BlasterController"))
+        end)
+        if not okBc or not blasterController then return end
+
+        -- NoRecoil
+        pcall(function()
+            local recoiler = scripts:FindFirstChild("CameraRecoiler")
+            if recoiler then
+                local CameraRecoiler = require(recoiler)
+                local oldRecoil = CameraRecoiler.recoil
+                CameraRecoiler.recoil = function(...)
+                    if noRecoilEnabled then return end
+                    return oldRecoil(...)
+                end
+            end
+        end)
+
+        -- InstantReload / AutoReload
+        if blasterController.reload then
+            local oldReload = blasterController.reload
+            blasterController.reload = function(self)
+                if not (instantReloadEnabled or autoReloadEnabled) then
+                    return oldReload(self)
+                end
+                if tick() - lastReloadTime < 0.15 then return end
+                lastReloadTime = tick()
+
+                local maxAmmo = self.blaster and self.blaster:GetAttribute("magazineSize") or 30
+                self.ammo = maxAmmo
+                self.reloading = false
+                pcall(function()
+                    if self.guiController then
+                        self.guiController:setAmmo(maxAmmo)
+                        self.guiController:setReloading(false)
+                    end
+                end)
+                pcall(function()
+                    local remotes = blaster:FindFirstChild("Remotes")
+                    local reloadRemote = remotes and remotes:FindFirstChild("Reload")
+                    if reloadRemote then reloadRemote:FireServer(self.blaster) end
+                end)
+            end
+        end
+
+        -- NoEquipDelay + AutoReload
+        if blasterController.canShoot then
+            local oldCanShoot = blasterController.canShoot
+            blasterController.canShoot = function(self)
+                if noEquipDelayEnabled then
+                    self.canShootAfterEquip = true
+                    self.isWeaponBlocked = false
+                end
+
+                if (instantReloadEnabled or autoReloadEnabled) and self.ammo ~= nil and self.ammo <= 0 then
+                    pcall(function() blasterController.reload(self) end)
+                end
+
+                if noEquipDelayEnabled or instantReloadEnabled or autoReloadEnabled then
+                    local sc = _G.SprintController
+                    local sprinting = sc and sc.isSprinting and sc.isSprinting()
+                    local hasAmmo = (self.ammo and self.ammo > 0) or instantReloadEnabled or autoReloadEnabled
+                    return self:isHumanoidAlive() and self.equipped and hasAmmo and not sprinting
+                end
+
+                return oldCanShoot(self)
+            end
+        end
+
+        -- FullAuto
+        if blasterController.startShooting then
+            local oldStartShooting = blasterController.startShooting
+            blasterController.startShooting = function(self)
+                if fullAutoEnabled then
+                    pcall(function()
+                        if self.blaster then self.blaster:SetAttribute("fireMode", "Auto") end
+                    end)
+                end
+                return oldStartShooting(self)
+            end
+        end
+
+        -- NoEquipDelay on equip
+        if blasterController.equip then
+            local oldEquip = blasterController.equip
+            blasterController.equip = function(self)
+                oldEquip(self)
+                if noEquipDelayEnabled then self.canShootAfterEquip = true end
+            end
+        end
+    end)
+end)
+
+-- InstantHit — ускорение пуль до bulletSpeedValue
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        if instantHitEnabled then
+            local char = LP.Character
+            if char then
+                local tool = char:FindFirstChildOfClass("Tool")
+                if tool then
+                    pcall(function()
+                        local attrs = tool:GetAttributes()
+                        for name, _ in pairs(attrs) do
+                            local lower = name:lower()
+                            if lower == "bulletspeed" or lower == "bulletvelocity" or lower == "projectilespeed" then
+                                tool:SetAttribute(name, bulletSpeedValue)
+                            end
+                        end
+                    end)
+                end
+            end
+        end
+    end
+end)
+
+-- FOV жёсткое удержание
 task.spawn(function()
     while true do
         RS.RenderStepped:Wait()
@@ -1564,7 +1729,7 @@ task.spawn(function()
     end
 end)
 
--- CUSTOM HANDS
+-- CUSTOM HANDS (руки в неоне)
 local TARGET_ARM_NAMES = {
     ["RightArm"] = true,
     ["LeftArm"] = true,
@@ -1650,34 +1815,29 @@ LP.CharacterAdded:Connect(function()
     end
 end)
 
--- VIEW MODEL
-function UpdateViewModel()
-    if not viewModelEnabled then return end
-    local char = LP.Character
-    if not char then return end
-    local tool = char:FindFirstChildOfClass("Tool")
-    if not tool then return end
-    local toolWorld = workspace:FindFirstChild(tool.Name)
-    if not toolWorld then return end
-    pcall(function()
-        toolWorld:PivotTo(Camera.CFrame * CFrame.new(viewModelX, viewModelY, viewModelZ))
-    end)
-end
-
+-- VIEW MODEL (из сусры)
 function ApplyViewModel()
     if viewModelConn then viewModelConn:Disconnect(); viewModelConn = nil end
+    if not viewModelEnabled then return end
+
     viewModelConn = RS.RenderStepped:Connect(function()
         if not viewModelEnabled then return end
         local char = LP.Character
         if not char then return end
+
         local tool = char:FindFirstChildOfClass("Tool")
         if not tool then return end
+
         local toolWorld = workspace:FindFirstChild(tool.Name)
         if not toolWorld then return end
+
         pcall(function()
             toolWorld:PivotTo(Camera.CFrame * CFrame.new(viewModelX, viewModelY, viewModelZ))
         end)
     end)
+end
+
+function UpdateViewModel()
 end
 
 function RemoveViewModel()
@@ -1714,7 +1874,7 @@ function ApplySkybox(name)
         Lighting.ColorShift_Top = Color3.fromRGB(0,0,0)
     else
         local id = SKYBOXES[name]
-        if id then
+        if id and id ~= "MULTI" then
             s.SkyboxBk = id; s.SkyboxDn = id; s.SkyboxFt = id
             s.SkyboxLf = id; s.SkyboxRt = id; s.SkyboxUp = id
         end
