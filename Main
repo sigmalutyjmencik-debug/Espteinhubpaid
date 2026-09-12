@@ -1,4 +1,4 @@
--- Project Astra v13.2 | t.me/epsteinhub
+-- Project Astra v13.3 | t.me/epsteinhub
 
 local UIS = game:GetService("UserInputService")
 local RS = game:GetService("RunService")
@@ -831,7 +831,7 @@ local SetScroll = Scrolls[4]
 local sY = 0
 
 sY = sY + Section(SetScroll, "INFO", sY)
-MakeText(SetScroll, "Project Astra v13.2", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 13, ACCENT); sY = sY + 24
+MakeText(SetScroll, "Project Astra v13.3", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 13, ACCENT); sY = sY + 24
 MakeText(SetScroll, "t.me/epsteinhub", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 13, WHITE); sY = sY + 24
 
 -- ============================================================
@@ -1027,7 +1027,7 @@ RS.RenderStepped:Connect(function()
 end)
 
 -- ============================================================
--- SILENT AIM
+-- SILENT AIM (FIXED — hit marker только при цели в FOV)
 -- ============================================================
 do
     local blaster = ReplicatedStorage:FindFirstChild("Blaster")
@@ -1049,7 +1049,16 @@ do
         pcall(function()
             local original
             original = hookfunction(castRaysFunc, function(plr, origin, dirs, ...)
-                if plr == LP and SILENT_AIM and type(dirs) == "table" then
+                if plr ~= LP then
+                    return original(plr, origin, dirs, ...)
+                end
+
+                local target = nil
+                if SILENT_AIM then
+                    target = getSilentTarget()
+                end
+
+                if target and type(dirs) == "table" then
                     for k in pairs(dirs) do
                         dirs[k] = Vector3.new(0,0,-1)
                     end
@@ -1057,47 +1066,46 @@ do
 
                 local result = original(plr, origin, dirs, ...)
 
-                if plr == LP then
-                    local target = getSilentTarget()
-                    if target then
-                        if TRACER then
-                            pcall(function() CreateTracer(origin, target.Position) end)
-                        end
+                if not target then
+                    return result
+                end
 
-                        if HIT_CHANCE/100 > math.random() then
-                            if type(result) == "table" then
-                                if result.position then
-                                    result.position = target.Position
-                                    result.instance = target
-                                    if target.Parent then
-                                        result.taggedHumanoid = target.Parent:FindFirstChildOfClass("Humanoid")
-                                    end
-                                elseif result[1] and type(result[1]) == "table" then
-                                    result[1].position = target.Position
-                                    result[1].instance = target
-                                    if target.Parent then
-                                        result[1].taggedHumanoid = target.Parent:FindFirstChildOfClass("Humanoid")
-                                    end
-                                end
+                if TRACER then
+                    pcall(function() CreateTracer(origin, target.Position) end)
+                end
+
+                if HIT_CHANCE/100 > math.random() then
+                    if type(result) == "table" then
+                        if result.position then
+                            result.position = target.Position
+                            result.instance = target
+                            if target.Parent then
+                                result.taggedHumanoid = target.Parent:FindFirstChildOfClass("Humanoid")
                             end
-
-                            pcall(function() CreateHitmarker(target.Position) end)
-
-                            if HIT_SOUND then
-                                task.spawn(function()
-                                    local s = Instance.new("Sound")
-                                    s.SoundId = "rbxassetid://"..HIT_SOUND_ID
-                                    s.Volume = HIT_SOUND_VOL
-                                    s.Parent = SoundService
-                                    s:Play()
-                                    task.wait(2)
-                                    s:Destroy()
-                                end)
+                        elseif result[1] and type(result[1]) == "table" then
+                            result[1].position = target.Position
+                            result[1].instance = target
+                            if target.Parent then
+                                result[1].taggedHumanoid = target.Parent:FindFirstChildOfClass("Humanoid")
                             end
-
-                            return result
                         end
                     end
+
+                    pcall(function() CreateHitmarker(target.Position) end)
+
+                    if HIT_SOUND then
+                        task.spawn(function()
+                            local s = Instance.new("Sound")
+                            s.SoundId = "rbxassetid://"..HIT_SOUND_ID
+                            s.Volume = HIT_SOUND_VOL
+                            s.Parent = SoundService
+                            s:Play()
+                            task.wait(2)
+                            s:Destroy()
+                        end)
+                    end
+
+                    return result
                 end
 
                 return result
