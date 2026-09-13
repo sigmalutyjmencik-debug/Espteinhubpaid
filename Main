@@ -1,4 +1,4 @@
--- Project Astra v13.3 | t.me/epsteinhub
+-- Project Astra v14 | t.me/epsteinhub
 
 local UIS = game:GetService("UserInputService")
 local RS = game:GetService("RunService")
@@ -12,7 +12,7 @@ local LP = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local GUI_PARENT = game:GetService("CoreGui")
 
-for _, n in ipairs({"ProjectAstra","AstraFOV","AstraFreezeUI","AstraTPButton","AstraAirWalkButton"}) do
+for _, n in ipairs({"ProjectAstra","AstraFOV","AstraFreezeUI","AstraTPButton","AstraAirWalkButton","AstraColorPicker"}) do
     local old = GUI_PARENT:FindFirstChild(n)
     if old then old:Destroy() end
 end
@@ -308,6 +308,14 @@ local cameraFovValue = 120
 local noFogEnabled = false
 local fullbrightEnabled = false
 
+local gammaEnabled = false
+local gammaValue = 10
+local gammaColor = Color3.fromRGB(128,128,128)
+local fogEnabled = false
+local fogStart = 100
+local fogEnd = 500
+local fogColor = Color3.fromRGB(128,128,128)
+
 local espEnabled = false
 local espBox = true
 local espName = true
@@ -372,13 +380,212 @@ local airWalkKey = Enum.KeyCode.V
 local airWalkBusy = false
 
 local whitelistEnabled = false
-local whitelist = {}
+local whitelistPlayers = {}
 
 local keybinds = {
     SilentAim = Enum.KeyCode.Z,
     Fly = Enum.KeyCode.F,
     Freeze = Enum.KeyCode.X,
 }
+
+-- ============================================================
+-- COLOR PICKER
+-- ============================================================
+local PickerGui = Instance.new("ScreenGui")
+PickerGui.Name = "AstraColorPicker"
+PickerGui.ResetOnSpawn = false
+PickerGui.DisplayOrder = 99999
+PickerGui.Parent = GUI_PARENT
+
+local PickerMain = Instance.new("Frame")
+PickerMain.Size = UDim2.fromOffset(280,260)
+PickerMain.BackgroundColor3 = PANEL
+PickerMain.BorderSizePixel = 0
+PickerMain.Visible = false
+PickerMain.ZIndex = 500
+PickerMain.Parent = PickerGui
+Stroke(PickerMain, 1.5)
+MakeText(PickerMain,"Color Picker",UDim2.fromOffset(10,6),UDim2.new(1,-50,0,20),13,WHITE)
+
+local PickerClose = Instance.new("TextButton")
+PickerClose.Size = UDim2.fromOffset(20,20)
+PickerClose.Position = UDim2.new(1,-26,0,5)
+PickerClose.BackgroundColor3 = Color3.fromRGB(200,40,40)
+PickerClose.BorderSizePixel = 0
+PickerClose.Text = "x"
+PickerClose.TextColor3 = WHITE
+PickerClose.Font = Enum.Font.Code
+PickerClose.TextSize = 11
+PickerClose.AutoButtonColor = false
+PickerClose.Parent = PickerMain
+Instance.new("UICorner",PickerClose).CornerRadius = UDim.new(0,4)
+PickerClose.MouseButton1Click:Connect(function()
+    PickerMain.Visible = false
+end)
+
+local Palette = Instance.new("Frame")
+Palette.Position = UDim2.fromOffset(10,34)
+Palette.Size = UDim2.fromOffset(200,150)
+Palette.BackgroundColor3 = Color3.fromHSV(0,1,1)
+Palette.BorderSizePixel = 0
+Palette.ZIndex = 501
+Palette.Parent = PickerMain
+Instance.new("UICorner",Palette).CornerRadius = UDim.new(0,3)
+
+local WhiteLayer = Instance.new("Frame")
+WhiteLayer.Size = UDim2.fromScale(1,1)
+WhiteLayer.BackgroundColor3 = Color3.new(1,1,1)
+WhiteLayer.BorderSizePixel = 0
+WhiteLayer.ZIndex = 502
+WhiteLayer.Parent = Palette
+local WG2 = Instance.new("UIGradient",WhiteLayer)
+WG2.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,0),NumberSequenceKeypoint.new(1,1)})
+
+local BlackLayer = Instance.new("Frame")
+BlackLayer.Size = UDim2.fromScale(1,1)
+BlackLayer.BackgroundColor3 = Color3.new(0,0,0)
+BlackLayer.BorderSizePixel = 0
+BlackLayer.ZIndex = 503
+BlackLayer.Parent = Palette
+local BG3 = Instance.new("UIGradient",BlackLayer)
+BG3.Rotation = 90
+BG3.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(1,0)})
+
+local PaletteCursor = Instance.new("Frame")
+PaletteCursor.AnchorPoint = Vector2.new(0.5,0.5)
+PaletteCursor.Size = UDim2.fromOffset(10,10)
+PaletteCursor.BackgroundTransparency = 1
+PaletteCursor.BorderSizePixel = 0
+PaletteCursor.ZIndex = 510
+PaletteCursor.Parent = Palette
+local PCS = Instance.new("UIStroke",PaletteCursor)
+PCS.Color = Color3.new(1,1,1)
+PCS.Thickness = 2
+
+local HueBar = Instance.new("Frame")
+HueBar.Position = UDim2.fromOffset(220,34)
+HueBar.Size = UDim2.fromOffset(20,150)
+HueBar.BackgroundColor3 = Color3.new(1,1,1)
+HueBar.BorderSizePixel = 0
+HueBar.ZIndex = 501
+HueBar.Parent = PickerMain
+Instance.new("UICorner",HueBar).CornerRadius = UDim.new(0,4)
+local HG = Instance.new("UIGradient",HueBar)
+HG.Rotation = 90
+HG.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255,0,0)),
+    ColorSequenceKeypoint.new(0.166, Color3.fromRGB(255,0,255)),
+    ColorSequenceKeypoint.new(0.333, Color3.fromRGB(0,0,255)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0,255,255)),
+    ColorSequenceKeypoint.new(0.666, Color3.fromRGB(0,255,0)),
+    ColorSequenceKeypoint.new(0.833, Color3.fromRGB(255,255,0)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(255,0,0)),
+})
+
+local HueCursor = Instance.new("Frame")
+HueCursor.AnchorPoint = Vector2.new(0.5,0.5)
+HueCursor.Size = UDim2.fromOffset(24,4)
+HueCursor.BackgroundColor3 = Color3.new(1,1,1)
+HueCursor.BorderSizePixel = 0
+HueCursor.ZIndex = 520
+HueCursor.Parent = HueBar
+Stroke(HueCursor,1)
+
+local RGBLabel = MakeText(PickerMain,"RGB: 255,255,255",UDim2.fromOffset(10,190),UDim2.fromOffset(200,18),11,WHITE)
+
+local ApplyBtn = Instance.new("TextButton")
+ApplyBtn.Position = UDim2.fromOffset(10,214)
+ApplyBtn.Size = UDim2.fromOffset(230,26)
+ApplyBtn.BackgroundColor3 = ACCENT
+ApplyBtn.BorderSizePixel = 0
+ApplyBtn.Text = "Apply"
+ApplyBtn.TextColor3 = WHITE
+ApplyBtn.Font = Enum.Font.Code
+ApplyBtn.TextSize = 12
+ApplyBtn.AutoButtonColor = false
+ApplyBtn.Parent = PickerMain
+Instance.new("UICorner",ApplyBtn).CornerRadius = UDim.new(0,4)
+Stroke(ApplyBtn,1)
+
+local HSV_h, HSV_s, HSV_v = 0, 1, 1
+local PickColor = Color3.new(1,1,1)
+local PaletteDrag, HueDrag = false, false
+local PickTarget = nil
+
+local function UpdatePick()
+    Palette.BackgroundColor3 = Color3.fromHSV(HSV_h,1,1)
+    PickColor = Color3.fromHSV(HSV_h,HSV_s,HSV_v)
+    PaletteCursor.Position = UDim2.new(HSV_s,0,1-HSV_v,0)
+    HueCursor.Position = UDim2.new(0.5,0,HSV_h,0)
+    RGBLabel.Text = string.format("RGB: %d, %d, %d",
+        math.floor(PickColor.R*255+0.5),
+        math.floor(PickColor.G*255+0.5),
+        math.floor(PickColor.B*255+0.5))
+end
+
+local function UpdatePalettePos(input)
+    local pos = Palette.AbsolutePosition
+    local size = Palette.AbsoluteSize
+    if size.X <= 0 or size.Y <= 0 then return end
+    HSV_s = math.clamp((input.Position.X - pos.X)/size.X, 0, 1)
+    HSV_v = 1 - math.clamp((input.Position.Y - pos.Y)/size.Y, 0, 1)
+    UpdatePick()
+end
+
+local function UpdateHuePos(input)
+    local pos = HueBar.AbsolutePosition
+    local size = HueBar.AbsoluteSize
+    if size.Y <= 0 then return end
+    HSV_h = math.clamp((input.Position.Y - pos.Y)/size.Y, 0, 1)
+    UpdatePick()
+end
+
+Palette.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        PaletteDrag = true
+        UpdatePalettePos(i)
+    end
+end)
+
+HueBar.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        HueDrag = true
+        UpdateHuePos(i)
+    end
+end)
+
+UIS.InputChanged:Connect(function(i)
+    if i.UserInputType ~= Enum.UserInputType.MouseMovement and i.UserInputType ~= Enum.UserInputType.Touch then return end
+    if PaletteDrag then UpdatePalettePos(i) end
+    if HueDrag then UpdateHuePos(i) end
+end)
+
+UIS.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        PaletteDrag = false
+        HueDrag = false
+    end
+end)
+
+ApplyBtn.MouseButton1Click:Connect(function()
+    if PickTarget then
+        PickTarget(PickColor)
+    end
+    PickerMain.Visible = false
+end)
+
+local function OpenColorPicker(startColor, callback)
+    local h,s,v = startColor:ToHSV()
+    HSV_h, HSV_s, HSV_v = h, s, v
+    PickTarget = callback
+    UpdatePick()
+
+    local vp = Camera.ViewportSize
+    local px = math.clamp(vp.X/2 - 140, 5, vp.X - 290)
+    local py = math.clamp(vp.Y/2 - 130, 5, vp.Y - 270)
+    PickerMain.Position = UDim2.fromOffset(px, py)
+    PickerMain.Visible = true
+end
 
 -- ============================================================
 -- UI COMPONENTS
@@ -617,9 +824,10 @@ local function ColorRow(parent, label, getColor, setColor, yPos)
     Stroke(btn,1)
 
     btn.MouseButton1Click:Connect(function()
-        local newColor = Color3.fromRGB(math.random(50,255), math.random(50,255), math.random(50,255))
-        btn.BackgroundColor3 = newColor
-        setColor(newColor)
+        OpenColorPicker(getColor(), function(c)
+            btn.BackgroundColor3 = c
+            setColor(c)
+        end)
     end)
     return container
 end
@@ -652,6 +860,11 @@ Slider(CombatScroll, "FOV Radius", 1, 500, 200, function(v) FOV_RADIUS = v end, 
 Dropdown(CombatScroll, "Hit Part", {"Head","Torso","HumanoidRootPart","Random"}, "Head", function(v) HIT_PART = v end, cY); cY = cY + 54
 
 cY = cY + 6
+cY = cY + Section(CombatScroll, "FOV VISUAL", cY)
+ColorRow(CombatScroll, "FOV Color", function() return silentAimFovColor end, function(c) silentAimFovColor = c end, cY); cY = cY + 26
+ColorRow(CombatScroll, "Snapline Color", function() return silentAimSnaplineColor end, function(c) silentAimSnaplineColor = c end, cY); cY = cY + 26
+
+cY = cY + 6
 cY = cY + Section(CombatScroll, "RAPID FIRE", cY)
 Checkbox(CombatScroll, "Enable Rapid Fire", false, function(v) RAPID_FIRE = v end, cY); cY = cY + 26
 Slider(CombatScroll, "Rate Value (x100k)", 1, 100, 100, function(v) RAPID_VALUE = v * 100000 end, cY); cY = cY + 46
@@ -676,6 +889,7 @@ Dropdown(CombatScroll, "Type", {"Red Laser","Neon Linia Bruh"}, "Red Laser", fun
 cY = cY + 6
 cY = cY + Section(CombatScroll, "HIT MARKER", cY)
 Checkbox(CombatScroll, "Enable Hit Marker", true, function(v) hitMarkerEnabled = v end, cY); cY = cY + 26
+ColorRow(CombatScroll, "Marker Color", function() return hitMarkerColor end, function(c) hitMarkerColor = c end, cY); cY = cY + 26
 Slider(CombatScroll, "Marker Size", 4, 30, 9, function(v) hitMarkerSize = v end, cY, "px"); cY = cY + 46
 Slider(CombatScroll, "Duration (x10ms)", 1, 100, 35, function(v) hitMarkerDuration = v/100 end, cY, "s"); cY = cY + 46
 
@@ -693,16 +907,26 @@ local vY = 0
 vY = vY + Section(VisScroll, "ESP", vY)
 Checkbox(VisScroll, "Enable ESP", false, function(v) espEnabled = v end, vY); vY = vY + 26
 Checkbox(VisScroll, "Box", true, function(v) espBox = v end, vY); vY = vY + 26
+ColorRow(VisScroll, "Box Color", function() return espBoxColor end, function(c) espBoxColor = c end, vY); vY = vY + 26
 Checkbox(VisScroll, "Name", true, function(v) espName = v end, vY); vY = vY + 26
+ColorRow(VisScroll, "Name Color", function() return espNameColor end, function(c) espNameColor = c end, vY); vY = vY + 26
 Checkbox(VisScroll, "Health", true, function(v) espHealth = v end, vY); vY = vY + 26
 Checkbox(VisScroll, "Distance", true, function(v) espDistance = v end, vY); vY = vY + 26
+ColorRow(VisScroll, "Distance Color", function() return espDistColor end, function(c) espDistColor = c end, vY); vY = vY + 26
 Checkbox(VisScroll, "Weapon", true, function(v) espWeapon = v end, vY); vY = vY + 26
+ColorRow(VisScroll, "Weapon Color", function() return espWeapColor end, function(c) espWeapColor = c end, vY); vY = vY + 26
 
 vY = vY + 6
 vY = vY + Section(VisScroll, "CUSTOM HANDS", vY)
 Checkbox(VisScroll, "Enable Custom Hands", false, function(v)
     customHandsEnabled = v
     if v then SetupCustomHands() else RemoveCustomHands() end
+end, vY); vY = vY + 26
+ColorRow(VisScroll, "Hands Color", function() return customHandsColor end, function(c)
+    customHandsColor = c
+    for part,_ in pairs(activeLockedArms) do
+        pcall(function() part.Color = c end)
+    end
 end, vY); vY = vY + 26
 Slider(VisScroll, "Hands Transparency", 0, 100, 55, function(v) customHandsTransp = v/100 end, vY, "%"); vY = vY + 46
 
@@ -719,6 +943,59 @@ Slider(VisScroll, "Z", -20, 20, -8, function(v) viewModelZ = v end, vY); vY = vY
 vY = vY + 6
 vY = vY + Section(VisScroll, "GUN CHAMS", vY)
 Checkbox(VisScroll, "Enable Gun Chams", false, function(v) gunChamsEnabled = v end, vY); vY = vY + 26
+ColorRow(VisScroll, "Gun Chams Color", function() return gunChamsColor end, function(c) gunChamsColor = c end, vY); vY = vY + 26
+
+vY = vY + 6
+vY = vY + Section(VisScroll, "GAMMA", vY)
+Checkbox(VisScroll, "Enable Gamma", false, function(v)
+    gammaEnabled = v
+    if v then
+        Lighting.Ambient = gammaColor
+        Lighting.OutdoorAmbient = gammaColor
+        Lighting.Brightness = gammaValue/10
+    else
+        Lighting.Ambient = Color3.fromRGB(128,128,128)
+        Lighting.OutdoorAmbient = Color3.fromRGB(128,128,128)
+        Lighting.Brightness = 1
+    end
+end, vY); vY = vY + 26
+ColorRow(VisScroll, "Gamma Color", function() return gammaColor end, function(c)
+    gammaColor = c
+    if gammaEnabled then
+        Lighting.Ambient = c
+        Lighting.OutdoorAmbient = c
+    end
+end, vY); vY = vY + 26
+Slider(VisScroll, "Gamma Brightness (x0.1)", 1, 50, 10, function(v)
+    gammaValue = v
+    if gammaEnabled then Lighting.Brightness = v/10 end
+end, vY); vY = vY + 46
+
+vY = vY + 6
+vY = vY + Section(VisScroll, "FOG", vY)
+Checkbox(VisScroll, "Enable Fog", false, function(v)
+    fogEnabled = v
+    if v then
+        Lighting.FogStart = fogStart
+        Lighting.FogEnd = fogEnd
+        Lighting.FogColor = fogColor
+    else
+        Lighting.FogEnd = 100000
+        Lighting.FogStart = 0
+    end
+end, vY); vY = vY + 26
+ColorRow(VisScroll, "Fog Color", function() return fogColor end, function(c)
+    fogColor = c
+    if fogEnabled then Lighting.FogColor = c end
+end, vY); vY = vY + 26
+Slider(VisScroll, "Fog Start", 0, 2000, 100, function(v)
+    fogStart = v
+    if fogEnabled then Lighting.FogStart = v end
+end, vY); vY = vY + 46
+Slider(VisScroll, "Fog End", 50, 5000, 500, function(v)
+    fogEnd = v
+    if fogEnabled then Lighting.FogEnd = v end
+end, vY); vY = vY + 46
 
 vY = vY + 6
 vY = vY + Section(VisScroll, "SKYBOX", vY)
@@ -739,7 +1016,7 @@ vY = vY + 6
 vY = vY + Section(VisScroll, "CAMERA", vY)
 Checkbox(VisScroll, "Custom FOV", false, function(v) cameraFovEnabled = v end, vY); vY = vY + 26
 Slider(VisScroll, "FOV Value", 60, 160, 120, function(v) cameraFovValue = v end, vY); vY = vY + 46
-Checkbox(VisScroll, "No Fog", false, function(v)
+Checkbox(VisScroll, "No Fog (Old)", false, function(v)
     noFogEnabled = v
     if v then
         Lighting.FogEnd = 1e6
@@ -831,8 +1108,59 @@ local SetScroll = Scrolls[4]
 local sY = 0
 
 sY = sY + Section(SetScroll, "INFO", sY)
-MakeText(SetScroll, "Project Astra v13.3", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 13, ACCENT); sY = sY + 24
+MakeText(SetScroll, "Project Astra v14", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 13, ACCENT); sY = sY + 24
 MakeText(SetScroll, "t.me/epsteinhub", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 13, WHITE); sY = sY + 24
+
+sY = sY + 6
+sY = sY + Section(SetScroll, "WHITELIST", sY)
+Checkbox(SetScroll, "Enable Whitelist", false, function(v)
+    whitelistEnabled = v
+    RenderWhitelist()
+end, sY); sY = sY + 26
+
+local wlFrame = Instance.new("ScrollingFrame")
+wlFrame.Position = UDim2.fromOffset(10, sY)
+wlFrame.Size = UDim2.new(1,-20,0,160)
+wlFrame.BackgroundColor3 = PANEL
+wlFrame.BorderSizePixel = 0
+wlFrame.ScrollBarThickness = 3
+wlFrame.ScrollBarImageColor3 = ACCENT
+wlFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+wlFrame.CanvasSize = UDim2.new()
+wlFrame.Parent = SetScroll
+Stroke(wlFrame,1)
+Instance.new("UIListLayout",wlFrame).Padding = UDim.new(0,3)
+sY = sY + 166
+
+function RenderWhitelist()
+    for _, c in ipairs(wlFrame:GetChildren()) do
+        if c:IsA("TextButton") then c:Destroy() end
+    end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP then
+            local b = Instance.new("TextButton")
+            b.Size = UDim2.new(1,-6,0,24)
+            b.BackgroundColor3 = whitelistPlayers[p.Name] and Color3.fromRGB(120,30,120) or Color3.fromRGB(20,20,20)
+            b.BorderSizePixel = 0
+            b.Text = p.Name .. (whitelistPlayers[p.Name] and "  [WL]" or "")
+            b.TextColor3 = WHITE
+            b.Font = Enum.Font.Code
+            b.TextSize = 12
+            b.TextXAlignment = Enum.TextXAlignment.Left
+            b.AutoButtonColor = false
+            b.Parent = wlFrame
+            Instance.new("UIPadding",b).PaddingLeft = UDim.new(0,6)
+            b.MouseButton1Click:Connect(function()
+                whitelistPlayers[p.Name] = not whitelistPlayers[p.Name] or nil
+                RenderWhitelist()
+            end)
+        end
+    end
+end
+
+Players.PlayerAdded:Connect(RenderWhitelist)
+Players.PlayerRemoving:Connect(RenderWhitelist)
+RenderWhitelist()
 
 -- ============================================================
 -- FOV CIRCLE
@@ -880,6 +1208,7 @@ local function getSilentTarget()
     for _,p in ipairs(Players:GetPlayers()) do
         if p == LP then continue end
         if TEAM_CHECK and p.Team == LP.Team then continue end
+        if whitelistEnabled and whitelistPlayers[p.Name] then continue end
         local char = p.Character
         if not char then continue end
         local hum = char:FindFirstChildOfClass("Humanoid")
@@ -956,7 +1285,7 @@ local function CreateTracer(from, to)
 end
 
 -- ============================================================
--- HIT MARKER
+-- HIT MARKER + FIX ПРИ СМЕРТИ
 -- ============================================================
 local function CreateHitmarker(worldPosition)
     if not hitMarkerEnabled then return end
@@ -987,6 +1316,7 @@ local function CreateHitmarker(worldPosition)
         local totalSteps = 20
         local stepTime = duration / totalSteps
         for i = totalSteps, 0, -1 do
+            if not ActiveHitmarkers[markerId] then return end
             markerData.Opacity = i / totalSteps
             task.wait(stepTime)
         end
@@ -995,6 +1325,39 @@ local function CreateHitmarker(worldPosition)
         end
         ActiveHitmarkers[markerId] = nil
     end)
+end
+
+local function ClearAllHitmarkers()
+    for id, marker in pairs(ActiveHitmarkers) do
+        for _, line in ipairs(marker.Lines) do
+            pcall(function() line:Remove() end)
+        end
+    end
+    ActiveHitmarkers = {}
+end
+
+LP.CharacterAdded:Connect(function()
+    ClearAllHitmarkers()
+end)
+
+LP.CharacterRemoving:Connect(function()
+    ClearAllHitmarkers()
+end)
+
+LP.CharacterAdded:Connect(function(char)
+    local hum = char:WaitForChild("Humanoid", 5)
+    if hum then
+        hum.Died:Connect(function()
+            ClearAllHitmarkers()
+        end)
+    end
+end)
+
+if LP.Character then
+    local hum = LP.Character:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.Died:Connect(function() ClearAllHitmarkers() end)
+    end
 end
 
 RS.RenderStepped:Connect(function()
@@ -1027,7 +1390,7 @@ RS.RenderStepped:Connect(function()
 end)
 
 -- ============================================================
--- SILENT AIM (FIXED — hit marker только при цели в FOV)
+-- SILENT AIM
 -- ============================================================
 do
     local blaster = ReplicatedStorage:FindFirstChild("Blaster")
