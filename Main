@@ -1,4 +1,4 @@
--- Project Astra v14 | t.me/epsteinhub
+-- Project Astra v15 | t.me/epsteinhub
 
 local UIS = game:GetService("UserInputService")
 local RS = game:GetService("RunService")
@@ -7,6 +7,7 @@ local Lighting = game:GetService("Lighting")
 local Debris = game:GetService("Debris")
 local SoundService = game:GetService("SoundService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
 
 local LP = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
@@ -381,6 +382,9 @@ local airWalkBusy = false
 
 local whitelistEnabled = false
 local whitelistPlayers = {}
+
+local CONFIG_FOLDER = "ProjectAstraConfigs"
+local selectedConfig = nil
 
 local keybinds = {
     SilentAim = Enum.KeyCode.Z,
@@ -1108,9 +1112,369 @@ local SetScroll = Scrolls[4]
 local sY = 0
 
 sY = sY + Section(SetScroll, "INFO", sY)
-MakeText(SetScroll, "Project Astra v14", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 13, ACCENT); sY = sY + 24
+MakeText(SetScroll, "Project Astra v15", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 13, ACCENT); sY = sY + 24
 MakeText(SetScroll, "t.me/epsteinhub", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 13, WHITE); sY = sY + 24
 
+-- ============================================================
+-- CONFIG SYSTEM
+-- ============================================================
+local function EnsureFolder()
+    if not isfolder or not makefolder then return end
+    pcall(function()
+        if not isfolder(CONFIG_FOLDER) then
+            makefolder(CONFIG_FOLDER)
+        end
+    end)
+end
+
+local function GetConfigPath(name)
+    if not name or name == "" then return nil end
+    return CONFIG_FOLDER .. "/" .. name .. ".json"
+end
+
+local function ListConfigs()
+    local list = {}
+    if not listfiles then return list end
+    EnsureFolder()
+    local ok, files = pcall(listfiles, CONFIG_FOLDER)
+    if ok and files then
+        for _, f in ipairs(files) do
+            local n = f:match("([^/\\]+)%.json$")
+            if n then table.insert(list, n) end
+        end
+    end
+    return list
+end
+
+local function CollectConfig()
+    return {
+        SILENT_AIM = SILENT_AIM,
+        HIT_CHANCE = HIT_CHANCE,
+        HIT_PART = HIT_PART,
+        FOV_RADIUS = FOV_RADIUS,
+        SHOW_FOV = SHOW_FOV,
+        TEAM_CHECK = TEAM_CHECK,
+        SNAPLINE = SNAPLINE,
+        TRACER = TRACER,
+        TRACER_TYPE = TRACER_TYPE,
+        TRACER_LIFE = TRACER_LIFE,
+        RAPID_FIRE = RAPID_FIRE,
+        RAPID_VALUE = RAPID_VALUE,
+        HIT_SOUND = HIT_SOUND,
+        HIT_SOUND_ID = HIT_SOUND_ID,
+        HIT_SOUND_VOL = HIT_SOUND_VOL,
+        hitMarkerEnabled = hitMarkerEnabled,
+        hitMarkerSize = hitMarkerSize,
+        hitMarkerDuration = hitMarkerDuration,
+        instantHitEnabled = instantHitEnabled,
+        noRecoilEnabled = noRecoilEnabled,
+        noSpreadEnabled = noSpreadEnabled,
+        instantReloadEnabled = instantReloadEnabled,
+        autoReloadEnabled = autoReloadEnabled,
+        noEquipDelayEnabled = noEquipDelayEnabled,
+        fullAutoEnabled = fullAutoEnabled,
+        bulletSpeedValue = bulletSpeedValue,
+        cameraFovEnabled = cameraFovEnabled,
+        cameraFovValue = cameraFovValue,
+        noFogEnabled = noFogEnabled,
+        fullbrightEnabled = fullbrightEnabled,
+        espEnabled = espEnabled,
+        espBox = espBox,
+        espName = espName,
+        espHealth = espHealth,
+        espDistance = espDistance,
+        espWeapon = espWeapon,
+        customHandsEnabled = customHandsEnabled,
+        customHandsTransp = customHandsTransp,
+        viewModelEnabled = viewModelEnabled,
+        viewModelX = viewModelX,
+        viewModelY = viewModelY,
+        viewModelZ = viewModelZ,
+        gunChamsEnabled = gunChamsEnabled,
+        skyboxEnabled = skyboxEnabled,
+        skyboxMode = skyboxMode,
+        gammaEnabled = gammaEnabled,
+        gammaValue = gammaValue,
+        fogEnabled = fogEnabled,
+        fogStart = fogStart,
+        fogEnd = fogEnd,
+        speedHackEnabled = speedHackEnabled,
+        speedValue = speedValue,
+        infJumpEnabled = infJumpEnabled,
+        noClipEnabled = noClipEnabled,
+        bhopEnabled = bhopEnabled,
+        JUMP_SHOT = JUMP_SHOT,
+        flyEnabled = flyEnabled,
+        flySpeed = flySpeed,
+        whitelistEnabled = whitelistEnabled,
+        whitelistPlayers = whitelistPlayers,
+        silentAimFovColor = {silentAimFovColor.R, silentAimFovColor.G, silentAimFovColor.B},
+        silentAimSnaplineColor = {silentAimSnaplineColor.R, silentAimSnaplineColor.G, silentAimSnaplineColor.B},
+        hitMarkerColor = {hitMarkerColor.R, hitMarkerColor.G, hitMarkerColor.B},
+        espBoxColor = {espBoxColor.R, espBoxColor.G, espBoxColor.B},
+        espNameColor = {espNameColor.R, espNameColor.G, espNameColor.B},
+        espDistColor = {espDistColor.R, espDistColor.G, espDistColor.B},
+        espWeapColor = {espWeapColor.R, espWeapColor.G, espWeapColor.B},
+        customHandsColor = {customHandsColor.R, customHandsColor.G, customHandsColor.B},
+        gunChamsColor = {gunChamsColor.R, gunChamsColor.G, gunChamsColor.B},
+        gammaColor = {gammaColor.R, gammaColor.G, gammaColor.B},
+        fogColor = {fogColor.R, fogColor.G, fogColor.B},
+    }
+end
+
+local function ApplyConfig(cfg)
+    if not cfg then return end
+    if cfg.SILENT_AIM ~= nil then SILENT_AIM = cfg.SILENT_AIM end
+    if cfg.HIT_CHANCE then HIT_CHANCE = cfg.HIT_CHANCE end
+    if cfg.HIT_PART then HIT_PART = cfg.HIT_PART end
+    if cfg.FOV_RADIUS then FOV_RADIUS = cfg.FOV_RADIUS end
+    if cfg.SHOW_FOV ~= nil then SHOW_FOV = cfg.SHOW_FOV end
+    if cfg.TEAM_CHECK ~= nil then TEAM_CHECK = cfg.TEAM_CHECK end
+    if cfg.SNAPLINE ~= nil then SNAPLINE = cfg.SNAPLINE end
+    if cfg.TRACER ~= nil then TRACER = cfg.TRACER end
+    if cfg.TRACER_TYPE then TRACER_TYPE = cfg.TRACER_TYPE end
+    if cfg.TRACER_LIFE then TRACER_LIFE = cfg.TRACER_LIFE end
+    if cfg.RAPID_FIRE ~= nil then RAPID_FIRE = cfg.RAPID_FIRE end
+    if cfg.RAPID_VALUE then RAPID_VALUE = cfg.RAPID_VALUE end
+    if cfg.HIT_SOUND ~= nil then HIT_SOUND = cfg.HIT_SOUND end
+    if cfg.HIT_SOUND_ID then HIT_SOUND_ID = cfg.HIT_SOUND_ID end
+    if cfg.HIT_SOUND_VOL then HIT_SOUND_VOL = cfg.HIT_SOUND_VOL end
+    if cfg.hitMarkerEnabled ~= nil then hitMarkerEnabled = cfg.hitMarkerEnabled end
+    if cfg.hitMarkerSize then hitMarkerSize = cfg.hitMarkerSize end
+    if cfg.hitMarkerDuration then hitMarkerDuration = cfg.hitMarkerDuration end
+    if cfg.instantHitEnabled ~= nil then instantHitEnabled = cfg.instantHitEnabled end
+    if cfg.noRecoilEnabled ~= nil then noRecoilEnabled = cfg.noRecoilEnabled end
+    if cfg.noSpreadEnabled ~= nil then noSpreadEnabled = cfg.noSpreadEnabled end
+    if cfg.instantReloadEnabled ~= nil then instantReloadEnabled = cfg.instantReloadEnabled end
+    if cfg.autoReloadEnabled ~= nil then autoReloadEnabled = cfg.autoReloadEnabled end
+    if cfg.noEquipDelayEnabled ~= nil then noEquipDelayEnabled = cfg.noEquipDelayEnabled end
+    if cfg.fullAutoEnabled ~= nil then fullAutoEnabled = cfg.fullAutoEnabled end
+    if cfg.bulletSpeedValue then bulletSpeedValue = cfg.bulletSpeedValue end
+    if cfg.cameraFovEnabled ~= nil then cameraFovEnabled = cfg.cameraFovEnabled end
+    if cfg.cameraFovValue then cameraFovValue = cfg.cameraFovValue end
+    if cfg.noFogEnabled ~= nil then noFogEnabled = cfg.noFogEnabled end
+    if cfg.fullbrightEnabled ~= nil then fullbrightEnabled = cfg.fullbrightEnabled end
+    if cfg.espEnabled ~= nil then espEnabled = cfg.espEnabled end
+    if cfg.espBox ~= nil then espBox = cfg.espBox end
+    if cfg.espName ~= nil then espName = cfg.espName end
+    if cfg.espHealth ~= nil then espHealth = cfg.espHealth end
+    if cfg.espDistance ~= nil then espDistance = cfg.espDistance end
+    if cfg.espWeapon ~= nil then espWeapon = cfg.espWeapon end
+    if cfg.customHandsEnabled ~= nil then customHandsEnabled = cfg.customHandsEnabled end
+    if cfg.customHandsTransp then customHandsTransp = cfg.customHandsTransp end
+    if cfg.viewModelEnabled ~= nil then viewModelEnabled = cfg.viewModelEnabled end
+    if cfg.viewModelX then viewModelX = cfg.viewModelX end
+    if cfg.viewModelY then viewModelY = cfg.viewModelY end
+    if cfg.viewModelZ then viewModelZ = cfg.viewModelZ end
+    if cfg.gunChamsEnabled ~= nil then gunChamsEnabled = cfg.gunChamsEnabled end
+    if cfg.skyboxEnabled ~= nil then skyboxEnabled = cfg.skyboxEnabled end
+    if cfg.skyboxMode then skyboxMode = cfg.skyboxMode end
+    if cfg.gammaEnabled ~= nil then gammaEnabled = cfg.gammaEnabled end
+    if cfg.gammaValue then gammaValue = cfg.gammaValue end
+    if cfg.fogEnabled ~= nil then fogEnabled = cfg.fogEnabled end
+    if cfg.fogStart then fogStart = cfg.fogStart end
+    if cfg.fogEnd then fogEnd = cfg.fogEnd end
+    if cfg.speedHackEnabled ~= nil then speedHackEnabled = cfg.speedHackEnabled end
+    if cfg.speedValue then speedValue = cfg.speedValue end
+    if cfg.infJumpEnabled ~= nil then infJumpEnabled = cfg.infJumpEnabled end
+    if cfg.noClipEnabled ~= nil then noClipEnabled = cfg.noClipEnabled end
+    if cfg.bhopEnabled ~= nil then bhopEnabled = cfg.bhopEnabled end
+    if cfg.JUMP_SHOT ~= nil then JUMP_SHOT = cfg.JUMP_SHOT end
+    if cfg.flyEnabled ~= nil then flyEnabled = cfg.flyEnabled end
+    if cfg.flySpeed then flySpeed = cfg.flySpeed end
+    if cfg.whitelistEnabled ~= nil then whitelistEnabled = cfg.whitelistEnabled end
+    if cfg.whitelistPlayers then whitelistPlayers = cfg.whitelistPlayers end
+
+    if cfg.silentAimFovColor then silentAimFovColor = Color3.new(unpack(cfg.silentAimFovColor)) end
+    if cfg.silentAimSnaplineColor then silentAimSnaplineColor = Color3.new(unpack(cfg.silentAimSnaplineColor)) end
+    if cfg.hitMarkerColor then hitMarkerColor = Color3.new(unpack(cfg.hitMarkerColor)) end
+    if cfg.espBoxColor then espBoxColor = Color3.new(unpack(cfg.espBoxColor)) end
+    if cfg.espNameColor then espNameColor = Color3.new(unpack(cfg.espNameColor)) end
+    if cfg.espDistColor then espDistColor = Color3.new(unpack(cfg.espDistColor)) end
+    if cfg.espWeapColor then espWeapColor = Color3.new(unpack(cfg.espWeapColor)) end
+    if cfg.customHandsColor then customHandsColor = Color3.new(unpack(cfg.customHandsColor)) end
+    if cfg.gunChamsColor then gunChamsColor = Color3.new(unpack(cfg.gunChamsColor)) end
+    if cfg.gammaColor then gammaColor = Color3.new(unpack(cfg.gammaColor)) end
+    if cfg.fogColor then fogColor = Color3.new(unpack(cfg.fogColor)) end
+
+    if customHandsEnabled then SetupCustomHands() else RemoveCustomHands() end
+    if skyboxEnabled then ApplySkybox(skyboxMode) end
+    if viewModelEnabled then ApplyViewModel() else RemoveViewModel() end
+    if fullbrightEnabled then
+        Lighting.Brightness = 3
+        Lighting.ClockTime = 14
+        Lighting.GlobalShadows = false
+    end
+    if gammaEnabled then
+        Lighting.Ambient = gammaColor
+        Lighting.OutdoorAmbient = gammaColor
+        Lighting.Brightness = gammaValue/10
+    end
+    if fogEnabled then
+        Lighting.FogStart = fogStart
+        Lighting.FogEnd = fogEnd
+        Lighting.FogColor = fogColor
+    end
+    RenderWhitelist()
+end
+
+sY = sY + 6
+sY = sY + Section(SetScroll, "CONFIG NAME", sY)
+
+local nameBox = Instance.new("TextBox")
+nameBox.Position = UDim2.fromOffset(10, sY)
+nameBox.Size = UDim2.new(1,-20,0,28)
+nameBox.BackgroundColor3 = DROPBG
+nameBox.BorderSizePixel = 0
+nameBox.Text = "my_config"
+nameBox.TextColor3 = WHITE
+nameBox.Font = Enum.Font.Code
+nameBox.TextSize = 12
+nameBox.ClearTextOnFocus = false
+nameBox.Parent = SetScroll
+Stroke(nameBox,1)
+sY = sY + 32
+
+local saveBtn = Instance.new("TextButton")
+saveBtn.Position = UDim2.fromOffset(10, sY)
+saveBtn.Size = UDim2.new(1,-20,0,28)
+saveBtn.BackgroundColor3 = Color3.fromRGB(60,120,60)
+saveBtn.BorderSizePixel = 0
+saveBtn.Text = "Save Config"
+saveBtn.TextColor3 = WHITE
+saveBtn.Font = Enum.Font.Code
+saveBtn.TextSize = 13
+saveBtn.AutoButtonColor = false
+saveBtn.Parent = SetScroll
+Stroke(saveBtn,1)
+sY = sY + 34
+
+sY = sY + Section(SetScroll, "CONFIGS LIST", sY)
+
+local cfgListFrame = Instance.new("ScrollingFrame")
+cfgListFrame.Position = UDim2.fromOffset(10, sY)
+cfgListFrame.Size = UDim2.new(1,-20,0,180)
+cfgListFrame.BackgroundColor3 = PANEL
+cfgListFrame.BorderSizePixel = 0
+cfgListFrame.ScrollBarThickness = 3
+cfgListFrame.ScrollBarImageColor3 = ACCENT
+cfgListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+cfgListFrame.CanvasSize = UDim2.new()
+cfgListFrame.Parent = SetScroll
+Stroke(cfgListFrame,1)
+Instance.new("UIListLayout",cfgListFrame).Padding = UDim.new(0,3)
+Instance.new("UIPadding",cfgListFrame).PaddingTop = UDim.new(0,4)
+Instance.new("UIPadding",cfgListFrame).PaddingLeft = UDim.new(0,4)
+Instance.new("UIPadding",cfgListFrame).PaddingRight = UDim.new(0,4)
+sY = sY + 186
+
+local function RenderConfigList()
+    for _, c in ipairs(cfgListFrame:GetChildren()) do
+        if c:IsA("TextButton") or c:IsA("Frame") or c:IsA("TextLabel") then c:Destroy() end
+    end
+
+    local configs = ListConfigs()
+
+    if #configs == 0 then
+        local empty = Instance.new("TextLabel")
+        empty.Size = UDim2.new(1,-6,0,24)
+        empty.BackgroundTransparency = 1
+        empty.Text = "  Нет конфигов"
+        empty.TextColor3 = GRAY
+        empty.Font = Enum.Font.Code
+        empty.TextSize = 12
+        empty.TextXAlignment = Enum.TextXAlignment.Left
+        empty.Parent = cfgListFrame
+        return
+    end
+
+    for _, name in ipairs(configs) do
+        local row = Instance.new("Frame")
+        row.Size = UDim2.new(1,-6,0,26)
+        row.BackgroundColor3 = name == selectedConfig and Color3.fromRGB(120,30,120) or Color3.fromRGB(20,20,20)
+        row.BorderSizePixel = 0
+        row.Parent = cfgListFrame
+        Instance.new("UICorner",row).CornerRadius = UDim.new(0,3)
+
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1,-76,1,0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = "  " .. name
+        lbl.TextColor3 = WHITE
+        lbl.Font = Enum.Font.Code
+        lbl.TextSize = 12
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.Parent = row
+
+        local loadBtn = Instance.new("TextButton")
+        loadBtn.Size = UDim2.fromOffset(34,20)
+        loadBtn.Position = UDim2.new(1,-72,0.5,-10)
+        loadBtn.BackgroundColor3 = Color3.fromRGB(60,120,60)
+        loadBtn.BorderSizePixel = 0
+        loadBtn.Text = "LOAD"
+        loadBtn.TextColor3 = WHITE
+        loadBtn.Font = Enum.Font.Code
+        loadBtn.TextSize = 9
+        loadBtn.AutoButtonColor = false
+        loadBtn.Parent = row
+        Instance.new("UICorner",loadBtn).CornerRadius = UDim.new(0,3)
+        Stroke(loadBtn,1)
+
+        local delBtn = Instance.new("TextButton")
+        delBtn.Size = UDim2.fromOffset(34,20)
+        delBtn.Position = UDim2.new(1,-34,0.5,-10)
+        delBtn.BackgroundColor3 = Color3.fromRGB(150,40,40)
+        delBtn.BorderSizePixel = 0
+        delBtn.Text = "DEL"
+        delBtn.TextColor3 = WHITE
+        delBtn.Font = Enum.Font.Code
+        delBtn.TextSize = 9
+        delBtn.AutoButtonColor = false
+        delBtn.Parent = row
+        Instance.new("UICorner",delBtn).CornerRadius = UDim.new(0,3)
+        Stroke(delBtn,1)
+
+        loadBtn.MouseButton1Click:Connect(function()
+            pcall(function()
+                if isfile and isfile(GetConfigPath(name)) then
+                    local data = HttpService:JSONDecode(readfile(GetConfigPath(name)))
+                    ApplyConfig(data)
+                    selectedConfig = name
+                    RenderConfigList()
+                end
+            end)
+        end)
+
+        delBtn.MouseButton1Click:Connect(function()
+            pcall(function()
+                if delfile and isfile(GetConfigPath(name)) then
+                    delfile(GetConfigPath(name))
+                    if selectedConfig == name then selectedConfig = nil end
+                    RenderConfigList()
+                end
+            end)
+        end)
+    end
+end
+
+saveBtn.MouseButton1Click:Connect(function()
+    pcall(function()
+        local name = nameBox.Text
+        if name == "" then name = "default" end
+        EnsureFolder()
+        if writefile then
+            writefile(GetConfigPath(name), HttpService:JSONEncode(CollectConfig()))
+            selectedConfig = name
+            RenderConfigList()
+        end
+    end)
+end)
+
+RenderConfigList()
+
+-- ============================================================
+-- WHITELIST
+-- ============================================================
 sY = sY + 6
 sY = sY + Section(SetScroll, "WHITELIST", sY)
 Checkbox(SetScroll, "Enable Whitelist", false, function(v)
@@ -1285,7 +1649,7 @@ local function CreateTracer(from, to)
 end
 
 -- ============================================================
--- HIT MARKER + FIX ПРИ СМЕРТИ
+-- HIT MARKER
 -- ============================================================
 local function CreateHitmarker(worldPosition)
     if not hitMarkerEnabled then return end
