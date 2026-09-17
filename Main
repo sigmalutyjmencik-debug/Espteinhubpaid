@@ -1,4 +1,4 @@
--- Project Astra v15 | t.me/epsteinhub
+-- Project Astra v16 | t.me/epsteinhub
 
 local UIS = game:GetService("UserInputService")
 local RS = game:GetService("RunService")
@@ -26,6 +26,11 @@ local CHECKBG = Color3.fromRGB(26,26,31)
 local WHITE = Color3.fromRGB(235,235,235)
 local GRAY = Color3.fromRGB(145,145,150)
 local ACCENT = Color3.fromRGB(255,25,120)
+
+-- Проверка файловой системы
+local HAS_FS = (type(writefile) == "function" and type(readfile) == "function" and type(isfile) == "function")
+local HAS_LIST = (type(listfiles) == "function")
+local HAS_FOLDER = (type(makefolder) == "function" and type(isfolder) == "function")
 
 -- ============================================================
 -- GUI
@@ -384,7 +389,6 @@ local whitelistEnabled = false
 local whitelistPlayers = {}
 
 local CONFIG_FOLDER = "ProjectAstraConfigs"
-local selectedConfig = nil
 
 local keybinds = {
     SilentAim = Enum.KeyCode.Z,
@@ -1112,41 +1116,252 @@ local SetScroll = Scrolls[4]
 local sY = 0
 
 sY = sY + Section(SetScroll, "INFO", sY)
-MakeText(SetScroll, "Project Astra v15", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 13, ACCENT); sY = sY + 24
+MakeText(SetScroll, "Project Astra v16", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 13, ACCENT); sY = sY + 24
 MakeText(SetScroll, "t.me/epsteinhub", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 13, WHITE); sY = sY + 24
 
 -- ============================================================
--- CONFIG SYSTEM
+-- WHITELIST
 -- ============================================================
-local function EnsureFolder()
-    if not isfolder or not makefolder then return end
-    pcall(function()
-        if not isfolder(CONFIG_FOLDER) then
-            makefolder(CONFIG_FOLDER)
-        end
-    end)
-end
+sY = sY + 6
+sY = sY + Section(SetScroll, "WHITELIST", sY)
+Checkbox(SetScroll, "Enable Whitelist", false, function(v)
+    whitelistEnabled = v
+    RenderWhitelist()
+end, sY); sY = sY + 26
 
-local function GetConfigPath(name)
-    if not name or name == "" then return nil end
-    return CONFIG_FOLDER .. "/" .. name .. ".json"
-end
+local wlFrame = Instance.new("ScrollingFrame")
+wlFrame.Position = UDim2.fromOffset(10, sY)
+wlFrame.Size = UDim2.new(1,-20,0,140)
+wlFrame.BackgroundColor3 = PANEL
+wlFrame.BorderSizePixel = 0
+wlFrame.ScrollBarThickness = 3
+wlFrame.ScrollBarImageColor3 = ACCENT
+wlFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+wlFrame.CanvasSize = UDim2.new()
+wlFrame.Parent = SetScroll
+Stroke(wlFrame,1)
+Instance.new("UIListLayout",wlFrame).Padding = UDim.new(0,3)
+sY = sY + 146
 
-local function ListConfigs()
-    local list = {}
-    if not listfiles then return list end
-    EnsureFolder()
-    local ok, files = pcall(listfiles, CONFIG_FOLDER)
-    if ok and files then
-        for _, f in ipairs(files) do
-            local n = f:match("([^/\\]+)%.json$")
-            if n then table.insert(list, n) end
+function RenderWhitelist()
+    for _, c in ipairs(wlFrame:GetChildren()) do
+        if c:IsA("TextButton") then c:Destroy() end
+    end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP then
+            local b = Instance.new("TextButton")
+            b.Size = UDim2.new(1,-6,0,24)
+            b.BackgroundColor3 = whitelistPlayers[p.Name] and Color3.fromRGB(120,30,120) or Color3.fromRGB(20,20,20)
+            b.BorderSizePixel = 0
+            b.Text = p.Name .. (whitelistPlayers[p.Name] and "  [WL]" or "")
+            b.TextColor3 = WHITE
+            b.Font = Enum.Font.Code
+            b.TextSize = 12
+            b.TextXAlignment = Enum.TextXAlignment.Left
+            b.AutoButtonColor = false
+            b.Parent = wlFrame
+            Instance.new("UIPadding",b).PaddingLeft = UDim.new(0,6)
+            b.MouseButton1Click:Connect(function()
+                whitelistPlayers[p.Name] = not whitelistPlayers[p.Name] or nil
+                RenderWhitelist()
+            end)
         end
     end
-    return list
 end
 
-local function CollectConfig()
+Players.PlayerAdded:Connect(RenderWhitelist)
+Players.PlayerRemoving:Connect(RenderWhitelist)
+RenderWhitelist()
+
+-- ============================================================
+-- CONFIGS (SAFE)
+-- ============================================================
+sY = sY + 6
+sY = sY + Section(SetScroll, "CONFIGS", sY)
+
+if not HAS_FS then
+    MakeText(SetScroll, "Executor не поддерживает", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 12, Color3.fromRGB(220,80,80)); sY = sY + 22
+    MakeText(SetScroll, "сохранение конфигов", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 12, Color3.fromRGB(220,80,80)); sY = sY + 22
+else
+    local nameBox = Instance.new("TextBox")
+    nameBox.Position = UDim2.fromOffset(10, sY)
+    nameBox.Size = UDim2.new(1,-20,0,28)
+    nameBox.BackgroundColor3 = DROPBG
+    nameBox.BorderSizePixel = 0
+    nameBox.Text = "my_config"
+    nameBox.TextColor3 = WHITE
+    nameBox.Font = Enum.Font.Code
+    nameBox.TextSize = 12
+    nameBox.ClearTextOnFocus = false
+    nameBox.Parent = SetScroll
+    Stroke(nameBox,1)
+    sY = sY + 32
+
+    local saveBtn = Instance.new("TextButton")
+    saveBtn.Position = UDim2.fromOffset(10, sY)
+    saveBtn.Size = UDim2.new(1,-20,0,28)
+    saveBtn.BackgroundColor3 = Color3.fromRGB(60,120,60)
+    saveBtn.BorderSizePixel = 0
+    saveBtn.Text = "Save Config"
+    saveBtn.TextColor3 = WHITE
+    saveBtn.Font = Enum.Font.Code
+    saveBtn.TextSize = 13
+    saveBtn.AutoButtonColor = false
+    saveBtn.Parent = SetScroll
+    Stroke(saveBtn,1)
+    sY = sY + 34
+
+    local cfgListFrame = Instance.new("ScrollingFrame")
+    cfgListFrame.Position = UDim2.fromOffset(10, sY)
+    cfgListFrame.Size = UDim2.new(1,-20,0,160)
+    cfgListFrame.BackgroundColor3 = PANEL
+    cfgListFrame.BorderSizePixel = 0
+    cfgListFrame.ScrollBarThickness = 3
+    cfgListFrame.ScrollBarImageColor3 = ACCENT
+    cfgListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    cfgListFrame.CanvasSize = UDim2.new()
+    cfgListFrame.Parent = SetScroll
+    Stroke(cfgListFrame,1)
+    Instance.new("UIListLayout",cfgListFrame).Padding = UDim.new(0,3)
+    Instance.new("UIPadding",cfgListFrame).PaddingTop = UDim.new(0,4)
+    Instance.new("UIPadding",cfgListFrame).PaddingLeft = UDim.new(0,4)
+    Instance.new("UIPadding",cfgListFrame).PaddingRight = UDim.new(0,4)
+    sY = sY + 166
+
+    local function EnsureFolder()
+        if HAS_FOLDER then
+            pcall(function()
+                if not isfolder(CONFIG_FOLDER) then
+                    makefolder(CONFIG_FOLDER)
+                end
+            end)
+        end
+    end
+
+    local function GetConfigPath(name)
+        if not name or name == "" then return nil end
+        return CONFIG_FOLDER .. "/" .. name .. ".json"
+    end
+
+    local function ListConfigs()
+        local list = {}
+        if not HAS_LIST then return list end
+        EnsureFolder()
+        local ok, files = pcall(listfiles, CONFIG_FOLDER)
+        if ok and files then
+            for _, f in ipairs(files) do
+                local n = f:match("([^/\\]+)%.json$")
+                if n then table.insert(list, n) end
+            end
+        end
+        return list
+    end
+
+    local function RenderConfigList()
+        for _, c in ipairs(cfgListFrame:GetChildren()) do
+            if c:IsA("TextButton") or c:IsA("Frame") or c:IsA("TextLabel") then c:Destroy() end
+        end
+
+        local configs = ListConfigs()
+        if #configs == 0 then
+            local empty = Instance.new("TextLabel")
+            empty.Size = UDim2.new(1,-6,0,24)
+            empty.BackgroundTransparency = 1
+            empty.Text = "  Нет конфигов"
+            empty.TextColor3 = GRAY
+            empty.Font = Enum.Font.Code
+            empty.TextSize = 12
+            empty.TextXAlignment = Enum.TextXAlignment.Left
+            empty.Parent = cfgListFrame
+            return
+        end
+
+        for _, name in ipairs(configs) do
+            local row = Instance.new("Frame")
+            row.Size = UDim2.new(1,-6,0,26)
+            row.BackgroundColor3 = Color3.fromRGB(20,20,20)
+            row.BorderSizePixel = 0
+            row.Parent = cfgListFrame
+            Instance.new("UICorner",row).CornerRadius = UDim.new(0,3)
+
+            local lbl = Instance.new("TextLabel")
+            lbl.Size = UDim2.new(1,-76,1,0)
+            lbl.BackgroundTransparency = 1
+            lbl.Text = "  " .. name
+            lbl.TextColor3 = WHITE
+            lbl.Font = Enum.Font.Code
+            lbl.TextSize = 12
+            lbl.TextXAlignment = Enum.TextXAlignment.Left
+            lbl.Parent = row
+
+            local loadBtn = Instance.new("TextButton")
+            loadBtn.Size = UDim2.fromOffset(34,20)
+            loadBtn.Position = UDim2.new(1,-72,0.5,-10)
+            loadBtn.BackgroundColor3 = Color3.fromRGB(60,120,60)
+            loadBtn.BorderSizePixel = 0
+            loadBtn.Text = "LOAD"
+            loadBtn.TextColor3 = WHITE
+            loadBtn.Font = Enum.Font.Code
+            loadBtn.TextSize = 9
+            loadBtn.AutoButtonColor = false
+            loadBtn.Parent = row
+            Instance.new("UICorner",loadBtn).CornerRadius = UDim.new(0,3)
+
+            local delBtn = Instance.new("TextButton")
+            delBtn.Size = UDim2.fromOffset(34,20)
+            delBtn.Position = UDim2.new(1,-34,0.5,-10)
+            delBtn.BackgroundColor3 = Color3.fromRGB(150,40,40)
+            delBtn.BorderSizePixel = 0
+            delBtn.Text = "DEL"
+            delBtn.TextColor3 = WHITE
+            delBtn.Font = Enum.Font.Code
+            delBtn.TextSize = 9
+            delBtn.AutoButtonColor = false
+            delBtn.Parent = row
+            Instance.new("UICorner",delBtn).CornerRadius = UDim.new(0,3)
+
+            loadBtn.MouseButton1Click:Connect(function()
+                pcall(function()
+                    local path = GetConfigPath(name)
+                    if path and isfile(path) then
+                        local data = HttpService:JSONDecode(readfile(path))
+                        ApplyConfig(data)
+                    end
+                end)
+            end)
+
+            delBtn.MouseButton1Click:Connect(function()
+                pcall(function()
+                    local path = GetConfigPath(name)
+                    if path and type(delfile) == "function" and isfile(path) then
+                        delfile(path)
+                        RenderConfigList()
+                    end
+                end)
+            end)
+        end
+    end
+
+    saveBtn.MouseButton1Click:Connect(function()
+        pcall(function()
+            local name = nameBox.Text
+            if name == "" then name = "default" end
+            EnsureFolder()
+            local path = GetConfigPath(name)
+            if path then
+                writefile(path, HttpService:JSONEncode(CollectConfig()))
+                RenderConfigList()
+            end
+        end)
+    end)
+
+    RenderConfigList()
+end
+
+-- ============================================================
+-- CONFIG COLLECT/APPLY
+-- ============================================================
+function CollectConfig()
     return {
         SILENT_AIM = SILENT_AIM,
         HIT_CHANCE = HIT_CHANCE,
@@ -1222,7 +1437,7 @@ local function CollectConfig()
     }
 end
 
-local function ApplyConfig(cfg)
+function ApplyConfig(cfg)
     if not cfg then return end
     if cfg.SILENT_AIM ~= nil then SILENT_AIM = cfg.SILENT_AIM end
     if cfg.HIT_CHANCE then HIT_CHANCE = cfg.HIT_CHANCE end
@@ -1317,214 +1532,6 @@ local function ApplyConfig(cfg)
     end
     RenderWhitelist()
 end
-
-sY = sY + 6
-sY = sY + Section(SetScroll, "CONFIG NAME", sY)
-
-local nameBox = Instance.new("TextBox")
-nameBox.Position = UDim2.fromOffset(10, sY)
-nameBox.Size = UDim2.new(1,-20,0,28)
-nameBox.BackgroundColor3 = DROPBG
-nameBox.BorderSizePixel = 0
-nameBox.Text = "my_config"
-nameBox.TextColor3 = WHITE
-nameBox.Font = Enum.Font.Code
-nameBox.TextSize = 12
-nameBox.ClearTextOnFocus = false
-nameBox.Parent = SetScroll
-Stroke(nameBox,1)
-sY = sY + 32
-
-local saveBtn = Instance.new("TextButton")
-saveBtn.Position = UDim2.fromOffset(10, sY)
-saveBtn.Size = UDim2.new(1,-20,0,28)
-saveBtn.BackgroundColor3 = Color3.fromRGB(60,120,60)
-saveBtn.BorderSizePixel = 0
-saveBtn.Text = "Save Config"
-saveBtn.TextColor3 = WHITE
-saveBtn.Font = Enum.Font.Code
-saveBtn.TextSize = 13
-saveBtn.AutoButtonColor = false
-saveBtn.Parent = SetScroll
-Stroke(saveBtn,1)
-sY = sY + 34
-
-sY = sY + Section(SetScroll, "CONFIGS LIST", sY)
-
-local cfgListFrame = Instance.new("ScrollingFrame")
-cfgListFrame.Position = UDim2.fromOffset(10, sY)
-cfgListFrame.Size = UDim2.new(1,-20,0,180)
-cfgListFrame.BackgroundColor3 = PANEL
-cfgListFrame.BorderSizePixel = 0
-cfgListFrame.ScrollBarThickness = 3
-cfgListFrame.ScrollBarImageColor3 = ACCENT
-cfgListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-cfgListFrame.CanvasSize = UDim2.new()
-cfgListFrame.Parent = SetScroll
-Stroke(cfgListFrame,1)
-Instance.new("UIListLayout",cfgListFrame).Padding = UDim.new(0,3)
-Instance.new("UIPadding",cfgListFrame).PaddingTop = UDim.new(0,4)
-Instance.new("UIPadding",cfgListFrame).PaddingLeft = UDim.new(0,4)
-Instance.new("UIPadding",cfgListFrame).PaddingRight = UDim.new(0,4)
-sY = sY + 186
-
-local function RenderConfigList()
-    for _, c in ipairs(cfgListFrame:GetChildren()) do
-        if c:IsA("TextButton") or c:IsA("Frame") or c:IsA("TextLabel") then c:Destroy() end
-    end
-
-    local configs = ListConfigs()
-
-    if #configs == 0 then
-        local empty = Instance.new("TextLabel")
-        empty.Size = UDim2.new(1,-6,0,24)
-        empty.BackgroundTransparency = 1
-        empty.Text = "  Нет конфигов"
-        empty.TextColor3 = GRAY
-        empty.Font = Enum.Font.Code
-        empty.TextSize = 12
-        empty.TextXAlignment = Enum.TextXAlignment.Left
-        empty.Parent = cfgListFrame
-        return
-    end
-
-    for _, name in ipairs(configs) do
-        local row = Instance.new("Frame")
-        row.Size = UDim2.new(1,-6,0,26)
-        row.BackgroundColor3 = name == selectedConfig and Color3.fromRGB(120,30,120) or Color3.fromRGB(20,20,20)
-        row.BorderSizePixel = 0
-        row.Parent = cfgListFrame
-        Instance.new("UICorner",row).CornerRadius = UDim.new(0,3)
-
-        local lbl = Instance.new("TextLabel")
-        lbl.Size = UDim2.new(1,-76,1,0)
-        lbl.BackgroundTransparency = 1
-        lbl.Text = "  " .. name
-        lbl.TextColor3 = WHITE
-        lbl.Font = Enum.Font.Code
-        lbl.TextSize = 12
-        lbl.TextXAlignment = Enum.TextXAlignment.Left
-        lbl.Parent = row
-
-        local loadBtn = Instance.new("TextButton")
-        loadBtn.Size = UDim2.fromOffset(34,20)
-        loadBtn.Position = UDim2.new(1,-72,0.5,-10)
-        loadBtn.BackgroundColor3 = Color3.fromRGB(60,120,60)
-        loadBtn.BorderSizePixel = 0
-        loadBtn.Text = "LOAD"
-        loadBtn.TextColor3 = WHITE
-        loadBtn.Font = Enum.Font.Code
-        loadBtn.TextSize = 9
-        loadBtn.AutoButtonColor = false
-        loadBtn.Parent = row
-        Instance.new("UICorner",loadBtn).CornerRadius = UDim.new(0,3)
-        Stroke(loadBtn,1)
-
-        local delBtn = Instance.new("TextButton")
-        delBtn.Size = UDim2.fromOffset(34,20)
-        delBtn.Position = UDim2.new(1,-34,0.5,-10)
-        delBtn.BackgroundColor3 = Color3.fromRGB(150,40,40)
-        delBtn.BorderSizePixel = 0
-        delBtn.Text = "DEL"
-        delBtn.TextColor3 = WHITE
-        delBtn.Font = Enum.Font.Code
-        delBtn.TextSize = 9
-        delBtn.AutoButtonColor = false
-        delBtn.Parent = row
-        Instance.new("UICorner",delBtn).CornerRadius = UDim.new(0,3)
-        Stroke(delBtn,1)
-
-        loadBtn.MouseButton1Click:Connect(function()
-            pcall(function()
-                if isfile and isfile(GetConfigPath(name)) then
-                    local data = HttpService:JSONDecode(readfile(GetConfigPath(name)))
-                    ApplyConfig(data)
-                    selectedConfig = name
-                    RenderConfigList()
-                end
-            end)
-        end)
-
-        delBtn.MouseButton1Click:Connect(function()
-            pcall(function()
-                if delfile and isfile(GetConfigPath(name)) then
-                    delfile(GetConfigPath(name))
-                    if selectedConfig == name then selectedConfig = nil end
-                    RenderConfigList()
-                end
-            end)
-        end)
-    end
-end
-
-saveBtn.MouseButton1Click:Connect(function()
-    pcall(function()
-        local name = nameBox.Text
-        if name == "" then name = "default" end
-        EnsureFolder()
-        if writefile then
-            writefile(GetConfigPath(name), HttpService:JSONEncode(CollectConfig()))
-            selectedConfig = name
-            RenderConfigList()
-        end
-    end)
-end)
-
-RenderConfigList()
-
--- ============================================================
--- WHITELIST
--- ============================================================
-sY = sY + 6
-sY = sY + Section(SetScroll, "WHITELIST", sY)
-Checkbox(SetScroll, "Enable Whitelist", false, function(v)
-    whitelistEnabled = v
-    RenderWhitelist()
-end, sY); sY = sY + 26
-
-local wlFrame = Instance.new("ScrollingFrame")
-wlFrame.Position = UDim2.fromOffset(10, sY)
-wlFrame.Size = UDim2.new(1,-20,0,160)
-wlFrame.BackgroundColor3 = PANEL
-wlFrame.BorderSizePixel = 0
-wlFrame.ScrollBarThickness = 3
-wlFrame.ScrollBarImageColor3 = ACCENT
-wlFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-wlFrame.CanvasSize = UDim2.new()
-wlFrame.Parent = SetScroll
-Stroke(wlFrame,1)
-Instance.new("UIListLayout",wlFrame).Padding = UDim.new(0,3)
-sY = sY + 166
-
-function RenderWhitelist()
-    for _, c in ipairs(wlFrame:GetChildren()) do
-        if c:IsA("TextButton") then c:Destroy() end
-    end
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LP then
-            local b = Instance.new("TextButton")
-            b.Size = UDim2.new(1,-6,0,24)
-            b.BackgroundColor3 = whitelistPlayers[p.Name] and Color3.fromRGB(120,30,120) or Color3.fromRGB(20,20,20)
-            b.BorderSizePixel = 0
-            b.Text = p.Name .. (whitelistPlayers[p.Name] and "  [WL]" or "")
-            b.TextColor3 = WHITE
-            b.Font = Enum.Font.Code
-            b.TextSize = 12
-            b.TextXAlignment = Enum.TextXAlignment.Left
-            b.AutoButtonColor = false
-            b.Parent = wlFrame
-            Instance.new("UIPadding",b).PaddingLeft = UDim.new(0,6)
-            b.MouseButton1Click:Connect(function()
-                whitelistPlayers[p.Name] = not whitelistPlayers[p.Name] or nil
-                RenderWhitelist()
-            end)
-        end
-    end
-end
-
-Players.PlayerAdded:Connect(RenderWhitelist)
-Players.PlayerRemoving:Connect(RenderWhitelist)
-RenderWhitelist()
 
 -- ============================================================
 -- FOV CIRCLE
