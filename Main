@@ -1,4 +1,4 @@
--- Project Astra v16 | t.me/epsteinhub
+-- Project Astra v17 | t.me/epsteinhub
 
 local UIS = game:GetService("UserInputService")
 local RS = game:GetService("RunService")
@@ -27,11 +27,6 @@ local WHITE = Color3.fromRGB(235,235,235)
 local GRAY = Color3.fromRGB(145,145,150)
 local ACCENT = Color3.fromRGB(255,25,120)
 
--- Проверка файловой системы
-local HAS_FS = (type(writefile) == "function" and type(readfile) == "function" and type(isfile) == "function")
-local HAS_LIST = (type(listfiles) == "function")
-local HAS_FOLDER = (type(makefolder) == "function" and type(isfolder) == "function")
-
 -- ============================================================
 -- GUI
 -- ============================================================
@@ -40,7 +35,8 @@ ScreenGui.Name = "ProjectAstra"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.IgnoreGuiInset = true
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = GUI_PARENT
+pcall(function() ScreenGui.Parent = GUI_PARENT end)
+if not ScreenGui.Parent then ScreenGui.Parent = LP:WaitForChild("PlayerGui") end
 
 local Main = Instance.new("Frame")
 Main.Name = "Main"
@@ -403,7 +399,8 @@ local PickerGui = Instance.new("ScreenGui")
 PickerGui.Name = "AstraColorPicker"
 PickerGui.ResetOnSpawn = false
 PickerGui.DisplayOrder = 99999
-PickerGui.Parent = GUI_PARENT
+pcall(function() PickerGui.Parent = GUI_PARENT end)
+if not PickerGui.Parent then PickerGui.Parent = LP:WaitForChild("PlayerGui") end
 
 local PickerMain = Instance.new("Frame")
 PickerMain.Size = UDim2.fromOffset(280,260)
@@ -1116,7 +1113,7 @@ local SetScroll = Scrolls[4]
 local sY = 0
 
 sY = sY + Section(SetScroll, "INFO", sY)
-MakeText(SetScroll, "Project Astra v16", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 13, ACCENT); sY = sY + 24
+MakeText(SetScroll, "Project Astra v17", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 13, ACCENT); sY = sY + 24
 MakeText(SetScroll, "t.me/epsteinhub", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 13, WHITE); sY = sY + 24
 
 -- ============================================================
@@ -1178,6 +1175,182 @@ RenderWhitelist()
 -- ============================================================
 sY = sY + 6
 sY = sY + Section(SetScroll, "CONFIGS", sY)
+
+local HAS_FS = (type(writefile) == "function" and type(readfile) == "function" and type(isfile) == "function")
+local HAS_LIST = (type(listfiles) == "function")
+local HAS_FOLDER = (type(makefolder) == "function" and type(isfolder) == "function")
+
+local function CollectConfig()
+    return {
+        SILENT_AIM = SILENT_AIM,
+        HIT_CHANCE = HIT_CHANCE,
+        HIT_PART = HIT_PART,
+        FOV_RADIUS = FOV_RADIUS,
+        SHOW_FOV = SHOW_FOV,
+        TEAM_CHECK = TEAM_CHECK,
+        SNAPLINE = SNAPLINE,
+        TRACER = TRACER,
+        TRACER_TYPE = TRACER_TYPE,
+        TRACER_LIFE = TRACER_LIFE,
+        RAPID_FIRE = RAPID_FIRE,
+        RAPID_VALUE = RAPID_VALUE,
+        HIT_SOUND = HIT_SOUND,
+        HIT_SOUND_ID = HIT_SOUND_ID,
+        HIT_SOUND_VOL = HIT_SOUND_VOL,
+        hitMarkerEnabled = hitMarkerEnabled,
+        hitMarkerSize = hitMarkerSize,
+        hitMarkerDuration = hitMarkerDuration,
+        instantHitEnabled = instantHitEnabled,
+        noRecoilEnabled = noRecoilEnabled,
+        noSpreadEnabled = noSpreadEnabled,
+        instantReloadEnabled = instantReloadEnabled,
+        autoReloadEnabled = autoReloadEnabled,
+        noEquipDelayEnabled = noEquipDelayEnabled,
+        fullAutoEnabled = fullAutoEnabled,
+        bulletSpeedValue = bulletSpeedValue,
+        cameraFovEnabled = cameraFovEnabled,
+        cameraFovValue = cameraFovValue,
+        noFogEnabled = noFogEnabled,
+        fullbrightEnabled = fullbrightEnabled,
+        espEnabled = espEnabled,
+        espBox = espBox,
+        espName = espName,
+        espHealth = espHealth,
+        espDistance = espDistance,
+        espWeapon = espWeapon,
+        customHandsEnabled = customHandsEnabled,
+        customHandsTransp = customHandsTransp,
+        viewModelEnabled = viewModelEnabled,
+        viewModelX = viewModelX,
+        viewModelY = viewModelY,
+        viewModelZ = viewModelZ,
+        gunChamsEnabled = gunChamsEnabled,
+        skyboxEnabled = skyboxEnabled,
+        skyboxMode = skyboxMode,
+        gammaEnabled = gammaEnabled,
+        gammaValue = gammaValue,
+        fogEnabled = fogEnabled,
+        fogStart = fogStart,
+        fogEnd = fogEnd,
+        speedHackEnabled = speedHackEnabled,
+        speedValue = speedValue,
+        infJumpEnabled = infJumpEnabled,
+        noClipEnabled = noClipEnabled,
+        bhopEnabled = bhopEnabled,
+        JUMP_SHOT = JUMP_SHOT,
+        flyEnabled = flyEnabled,
+        flySpeed = flySpeed,
+        whitelistEnabled = whitelistEnabled,
+        whitelistPlayers = whitelistPlayers,
+        silentAimFovColor = {silentAimFovColor.R, silentAimFovColor.G, silentAimFovColor.B},
+        silentAimSnaplineColor = {silentAimSnaplineColor.R, silentAimSnaplineColor.G, silentAimSnaplineColor.B},
+        hitMarkerColor = {hitMarkerColor.R, hitMarkerColor.G, hitMarkerColor.B},
+        espBoxColor = {espBoxColor.R, espBoxColor.G, espBoxColor.B},
+        espNameColor = {espNameColor.R, espNameColor.G, espNameColor.B},
+        espDistColor = {espDistColor.R, espDistColor.G, espDistColor.B},
+        espWeapColor = {espWeapColor.R, espWeapColor.G, espWeapColor.B},
+        customHandsColor = {customHandsColor.R, customHandsColor.G, customHandsColor.B},
+        gunChamsColor = {gunChamsColor.R, gunChamsColor.G, gunChamsColor.B},
+        gammaColor = {gammaColor.R, gammaColor.G, gammaColor.B},
+        fogColor = {fogColor.R, fogColor.G, fogColor.B},
+    }
+end
+
+function ApplyConfig(cfg)
+    if not cfg then return end
+    if cfg.SILENT_AIM ~= nil then SILENT_AIM = cfg.SILENT_AIM end
+    if cfg.HIT_CHANCE then HIT_CHANCE = cfg.HIT_CHANCE end
+    if cfg.HIT_PART then HIT_PART = cfg.HIT_PART end
+    if cfg.FOV_RADIUS then FOV_RADIUS = cfg.FOV_RADIUS end
+    if cfg.SHOW_FOV ~= nil then SHOW_FOV = cfg.SHOW_FOV end
+    if cfg.TEAM_CHECK ~= nil then TEAM_CHECK = cfg.TEAM_CHECK end
+    if cfg.SNAPLINE ~= nil then SNAPLINE = cfg.SNAPLINE end
+    if cfg.TRACER ~= nil then TRACER = cfg.TRACER end
+    if cfg.TRACER_TYPE then TRACER_TYPE = cfg.TRACER_TYPE end
+    if cfg.TRACER_LIFE then TRACER_LIFE = cfg.TRACER_LIFE end
+    if cfg.RAPID_FIRE ~= nil then RAPID_FIRE = cfg.RAPID_FIRE end
+    if cfg.RAPID_VALUE then RAPID_VALUE = cfg.RAPID_VALUE end
+    if cfg.HIT_SOUND ~= nil then HIT_SOUND = cfg.HIT_SOUND end
+    if cfg.HIT_SOUND_ID then HIT_SOUND_ID = cfg.HIT_SOUND_ID end
+    if cfg.HIT_SOUND_VOL then HIT_SOUND_VOL = cfg.HIT_SOUND_VOL end
+    if cfg.hitMarkerEnabled ~= nil then hitMarkerEnabled = cfg.hitMarkerEnabled end
+    if cfg.hitMarkerSize then hitMarkerSize = cfg.hitMarkerSize end
+    if cfg.hitMarkerDuration then hitMarkerDuration = cfg.hitMarkerDuration end
+    if cfg.instantHitEnabled ~= nil then instantHitEnabled = cfg.instantHitEnabled end
+    if cfg.noRecoilEnabled ~= nil then noRecoilEnabled = cfg.noRecoilEnabled end
+    if cfg.noSpreadEnabled ~= nil then noSpreadEnabled = cfg.noSpreadEnabled end
+    if cfg.instantReloadEnabled ~= nil then instantReloadEnabled = cfg.instantReloadEnabled end
+    if cfg.autoReloadEnabled ~= nil then autoReloadEnabled = cfg.autoReloadEnabled end
+    if cfg.noEquipDelayEnabled ~= nil then noEquipDelayEnabled = cfg.noEquipDelayEnabled end
+    if cfg.fullAutoEnabled ~= nil then fullAutoEnabled = cfg.fullAutoEnabled end
+    if cfg.bulletSpeedValue then bulletSpeedValue = cfg.bulletSpeedValue end
+    if cfg.cameraFovEnabled ~= nil then cameraFovEnabled = cfg.cameraFovEnabled end
+    if cfg.cameraFovValue then cameraFovValue = cfg.cameraFovValue end
+    if cfg.noFogEnabled ~= nil then noFogEnabled = cfg.noFogEnabled end
+    if cfg.fullbrightEnabled ~= nil then fullbrightEnabled = cfg.fullbrightEnabled end
+    if cfg.espEnabled ~= nil then espEnabled = cfg.espEnabled end
+    if cfg.espBox ~= nil then espBox = cfg.espBox end
+    if cfg.espName ~= nil then espName = cfg.espName end
+    if cfg.espHealth ~= nil then espHealth = cfg.espHealth end
+    if cfg.espDistance ~= nil then espDistance = cfg.espDistance end
+    if cfg.espWeapon ~= nil then espWeapon = cfg.espWeapon end
+    if cfg.customHandsEnabled ~= nil then customHandsEnabled = cfg.customHandsEnabled end
+    if cfg.customHandsTransp then customHandsTransp = cfg.customHandsTransp end
+    if cfg.viewModelEnabled ~= nil then viewModelEnabled = cfg.viewModelEnabled end
+    if cfg.viewModelX then viewModelX = cfg.viewModelX end
+    if cfg.viewModelY then viewModelY = cfg.viewModelY end
+    if cfg.viewModelZ then viewModelZ = cfg.viewModelZ end
+    if cfg.gunChamsEnabled ~= nil then gunChamsEnabled = cfg.gunChamsEnabled end
+    if cfg.skyboxEnabled ~= nil then skyboxEnabled = cfg.skyboxEnabled end
+    if cfg.skyboxMode then skyboxMode = cfg.skyboxMode end
+    if cfg.gammaEnabled ~= nil then gammaEnabled = cfg.gammaEnabled end
+    if cfg.gammaValue then gammaValue = cfg.gammaValue end
+    if cfg.fogEnabled ~= nil then fogEnabled = cfg.fogEnabled end
+    if cfg.fogStart then fogStart = cfg.fogStart end
+    if cfg.fogEnd then fogEnd = cfg.fogEnd end
+    if cfg.speedHackEnabled ~= nil then speedHackEnabled = cfg.speedHackEnabled end
+    if cfg.speedValue then speedValue = cfg.speedValue end
+    if cfg.infJumpEnabled ~= nil then infJumpEnabled = cfg.infJumpEnabled end
+    if cfg.noClipEnabled ~= nil then noClipEnabled = cfg.noClipEnabled end
+    if cfg.bhopEnabled ~= nil then bhopEnabled = cfg.bhopEnabled end
+    if cfg.JUMP_SHOT ~= nil then JUMP_SHOT = cfg.JUMP_SHOT end
+    if cfg.flyEnabled ~= nil then flyEnabled = cfg.flyEnabled end
+    if cfg.flySpeed then flySpeed = cfg.flySpeed end
+    if cfg.whitelistEnabled ~= nil then whitelistEnabled = cfg.whitelistEnabled end
+    if cfg.whitelistPlayers then whitelistPlayers = cfg.whitelistPlayers end
+
+    if cfg.silentAimFovColor then silentAimFovColor = Color3.new(unpack(cfg.silentAimFovColor)) end
+    if cfg.silentAimSnaplineColor then silentAimSnaplineColor = Color3.new(unpack(cfg.silentAimSnaplineColor)) end
+    if cfg.hitMarkerColor then hitMarkerColor = Color3.new(unpack(cfg.hitMarkerColor)) end
+    if cfg.espBoxColor then espBoxColor = Color3.new(unpack(cfg.espBoxColor)) end
+    if cfg.espNameColor then espNameColor = Color3.new(unpack(cfg.espNameColor)) end
+    if cfg.espDistColor then espDistColor = Color3.new(unpack(cfg.espDistColor)) end
+    if cfg.espWeapColor then espWeapColor = Color3.new(unpack(cfg.espWeapColor)) end
+    if cfg.customHandsColor then customHandsColor = Color3.new(unpack(cfg.customHandsColor)) end
+    if cfg.gunChamsColor then gunChamsColor = Color3.new(unpack(cfg.gunChamsColor)) end
+    if cfg.gammaColor then gammaColor = Color3.new(unpack(cfg.gammaColor)) end
+    if cfg.fogColor then fogColor = Color3.new(unpack(cfg.fogColor)) end
+
+    if customHandsEnabled then SetupCustomHands() else RemoveCustomHands() end
+    if skyboxEnabled then ApplySkybox(skyboxMode) end
+    if viewModelEnabled then ApplyViewModel() else RemoveViewModel() end
+    if fullbrightEnabled then
+        Lighting.Brightness = 3
+        Lighting.ClockTime = 14
+        Lighting.GlobalShadows = false
+    end
+    if gammaEnabled then
+        Lighting.Ambient = gammaColor
+        Lighting.OutdoorAmbient = gammaColor
+        Lighting.Brightness = gammaValue/10
+    end
+    if fogEnabled then
+        Lighting.FogStart = fogStart
+        Lighting.FogEnd = fogEnd
+        Lighting.FogColor = fogColor
+    end
+    RenderWhitelist()
+end
 
 if not HAS_FS then
     MakeText(SetScroll, "Executor не поддерживает", UDim2.fromOffset(10,sY), UDim2.new(1,-20,0,22), 12, Color3.fromRGB(220,80,80)); sY = sY + 22
@@ -1359,188 +1532,14 @@ else
 end
 
 -- ============================================================
--- CONFIG COLLECT/APPLY
--- ============================================================
-function CollectConfig()
-    return {
-        SILENT_AIM = SILENT_AIM,
-        HIT_CHANCE = HIT_CHANCE,
-        HIT_PART = HIT_PART,
-        FOV_RADIUS = FOV_RADIUS,
-        SHOW_FOV = SHOW_FOV,
-        TEAM_CHECK = TEAM_CHECK,
-        SNAPLINE = SNAPLINE,
-        TRACER = TRACER,
-        TRACER_TYPE = TRACER_TYPE,
-        TRACER_LIFE = TRACER_LIFE,
-        RAPID_FIRE = RAPID_FIRE,
-        RAPID_VALUE = RAPID_VALUE,
-        HIT_SOUND = HIT_SOUND,
-        HIT_SOUND_ID = HIT_SOUND_ID,
-        HIT_SOUND_VOL = HIT_SOUND_VOL,
-        hitMarkerEnabled = hitMarkerEnabled,
-        hitMarkerSize = hitMarkerSize,
-        hitMarkerDuration = hitMarkerDuration,
-        instantHitEnabled = instantHitEnabled,
-        noRecoilEnabled = noRecoilEnabled,
-        noSpreadEnabled = noSpreadEnabled,
-        instantReloadEnabled = instantReloadEnabled,
-        autoReloadEnabled = autoReloadEnabled,
-        noEquipDelayEnabled = noEquipDelayEnabled,
-        fullAutoEnabled = fullAutoEnabled,
-        bulletSpeedValue = bulletSpeedValue,
-        cameraFovEnabled = cameraFovEnabled,
-        cameraFovValue = cameraFovValue,
-        noFogEnabled = noFogEnabled,
-        fullbrightEnabled = fullbrightEnabled,
-        espEnabled = espEnabled,
-        espBox = espBox,
-        espName = espName,
-        espHealth = espHealth,
-        espDistance = espDistance,
-        espWeapon = espWeapon,
-        customHandsEnabled = customHandsEnabled,
-        customHandsTransp = customHandsTransp,
-        viewModelEnabled = viewModelEnabled,
-        viewModelX = viewModelX,
-        viewModelY = viewModelY,
-        viewModelZ = viewModelZ,
-        gunChamsEnabled = gunChamsEnabled,
-        skyboxEnabled = skyboxEnabled,
-        skyboxMode = skyboxMode,
-        gammaEnabled = gammaEnabled,
-        gammaValue = gammaValue,
-        fogEnabled = fogEnabled,
-        fogStart = fogStart,
-        fogEnd = fogEnd,
-        speedHackEnabled = speedHackEnabled,
-        speedValue = speedValue,
-        infJumpEnabled = infJumpEnabled,
-        noClipEnabled = noClipEnabled,
-        bhopEnabled = bhopEnabled,
-        JUMP_SHOT = JUMP_SHOT,
-        flyEnabled = flyEnabled,
-        flySpeed = flySpeed,
-        whitelistEnabled = whitelistEnabled,
-        whitelistPlayers = whitelistPlayers,
-        silentAimFovColor = {silentAimFovColor.R, silentAimFovColor.G, silentAimFovColor.B},
-        silentAimSnaplineColor = {silentAimSnaplineColor.R, silentAimSnaplineColor.G, silentAimSnaplineColor.B},
-        hitMarkerColor = {hitMarkerColor.R, hitMarkerColor.G, hitMarkerColor.B},
-        espBoxColor = {espBoxColor.R, espBoxColor.G, espBoxColor.B},
-        espNameColor = {espNameColor.R, espNameColor.G, espNameColor.B},
-        espDistColor = {espDistColor.R, espDistColor.G, espDistColor.B},
-        espWeapColor = {espWeapColor.R, espWeapColor.G, espWeapColor.B},
-        customHandsColor = {customHandsColor.R, customHandsColor.G, customHandsColor.B},
-        gunChamsColor = {gunChamsColor.R, gunChamsColor.G, gunChamsColor.B},
-        gammaColor = {gammaColor.R, gammaColor.G, gammaColor.B},
-        fogColor = {fogColor.R, fogColor.G, fogColor.B},
-    }
-end
-
-function ApplyConfig(cfg)
-    if not cfg then return end
-    if cfg.SILENT_AIM ~= nil then SILENT_AIM = cfg.SILENT_AIM end
-    if cfg.HIT_CHANCE then HIT_CHANCE = cfg.HIT_CHANCE end
-    if cfg.HIT_PART then HIT_PART = cfg.HIT_PART end
-    if cfg.FOV_RADIUS then FOV_RADIUS = cfg.FOV_RADIUS end
-    if cfg.SHOW_FOV ~= nil then SHOW_FOV = cfg.SHOW_FOV end
-    if cfg.TEAM_CHECK ~= nil then TEAM_CHECK = cfg.TEAM_CHECK end
-    if cfg.SNAPLINE ~= nil then SNAPLINE = cfg.SNAPLINE end
-    if cfg.TRACER ~= nil then TRACER = cfg.TRACER end
-    if cfg.TRACER_TYPE then TRACER_TYPE = cfg.TRACER_TYPE end
-    if cfg.TRACER_LIFE then TRACER_LIFE = cfg.TRACER_LIFE end
-    if cfg.RAPID_FIRE ~= nil then RAPID_FIRE = cfg.RAPID_FIRE end
-    if cfg.RAPID_VALUE then RAPID_VALUE = cfg.RAPID_VALUE end
-    if cfg.HIT_SOUND ~= nil then HIT_SOUND = cfg.HIT_SOUND end
-    if cfg.HIT_SOUND_ID then HIT_SOUND_ID = cfg.HIT_SOUND_ID end
-    if cfg.HIT_SOUND_VOL then HIT_SOUND_VOL = cfg.HIT_SOUND_VOL end
-    if cfg.hitMarkerEnabled ~= nil then hitMarkerEnabled = cfg.hitMarkerEnabled end
-    if cfg.hitMarkerSize then hitMarkerSize = cfg.hitMarkerSize end
-    if cfg.hitMarkerDuration then hitMarkerDuration = cfg.hitMarkerDuration end
-    if cfg.instantHitEnabled ~= nil then instantHitEnabled = cfg.instantHitEnabled end
-    if cfg.noRecoilEnabled ~= nil then noRecoilEnabled = cfg.noRecoilEnabled end
-    if cfg.noSpreadEnabled ~= nil then noSpreadEnabled = cfg.noSpreadEnabled end
-    if cfg.instantReloadEnabled ~= nil then instantReloadEnabled = cfg.instantReloadEnabled end
-    if cfg.autoReloadEnabled ~= nil then autoReloadEnabled = cfg.autoReloadEnabled end
-    if cfg.noEquipDelayEnabled ~= nil then noEquipDelayEnabled = cfg.noEquipDelayEnabled end
-    if cfg.fullAutoEnabled ~= nil then fullAutoEnabled = cfg.fullAutoEnabled end
-    if cfg.bulletSpeedValue then bulletSpeedValue = cfg.bulletSpeedValue end
-    if cfg.cameraFovEnabled ~= nil then cameraFovEnabled = cfg.cameraFovEnabled end
-    if cfg.cameraFovValue then cameraFovValue = cfg.cameraFovValue end
-    if cfg.noFogEnabled ~= nil then noFogEnabled = cfg.noFogEnabled end
-    if cfg.fullbrightEnabled ~= nil then fullbrightEnabled = cfg.fullbrightEnabled end
-    if cfg.espEnabled ~= nil then espEnabled = cfg.espEnabled end
-    if cfg.espBox ~= nil then espBox = cfg.espBox end
-    if cfg.espName ~= nil then espName = cfg.espName end
-    if cfg.espHealth ~= nil then espHealth = cfg.espHealth end
-    if cfg.espDistance ~= nil then espDistance = cfg.espDistance end
-    if cfg.espWeapon ~= nil then espWeapon = cfg.espWeapon end
-    if cfg.customHandsEnabled ~= nil then customHandsEnabled = cfg.customHandsEnabled end
-    if cfg.customHandsTransp then customHandsTransp = cfg.customHandsTransp end
-    if cfg.viewModelEnabled ~= nil then viewModelEnabled = cfg.viewModelEnabled end
-    if cfg.viewModelX then viewModelX = cfg.viewModelX end
-    if cfg.viewModelY then viewModelY = cfg.viewModelY end
-    if cfg.viewModelZ then viewModelZ = cfg.viewModelZ end
-    if cfg.gunChamsEnabled ~= nil then gunChamsEnabled = cfg.gunChamsEnabled end
-    if cfg.skyboxEnabled ~= nil then skyboxEnabled = cfg.skyboxEnabled end
-    if cfg.skyboxMode then skyboxMode = cfg.skyboxMode end
-    if cfg.gammaEnabled ~= nil then gammaEnabled = cfg.gammaEnabled end
-    if cfg.gammaValue then gammaValue = cfg.gammaValue end
-    if cfg.fogEnabled ~= nil then fogEnabled = cfg.fogEnabled end
-    if cfg.fogStart then fogStart = cfg.fogStart end
-    if cfg.fogEnd then fogEnd = cfg.fogEnd end
-    if cfg.speedHackEnabled ~= nil then speedHackEnabled = cfg.speedHackEnabled end
-    if cfg.speedValue then speedValue = cfg.speedValue end
-    if cfg.infJumpEnabled ~= nil then infJumpEnabled = cfg.infJumpEnabled end
-    if cfg.noClipEnabled ~= nil then noClipEnabled = cfg.noClipEnabled end
-    if cfg.bhopEnabled ~= nil then bhopEnabled = cfg.bhopEnabled end
-    if cfg.JUMP_SHOT ~= nil then JUMP_SHOT = cfg.JUMP_SHOT end
-    if cfg.flyEnabled ~= nil then flyEnabled = cfg.flyEnabled end
-    if cfg.flySpeed then flySpeed = cfg.flySpeed end
-    if cfg.whitelistEnabled ~= nil then whitelistEnabled = cfg.whitelistEnabled end
-    if cfg.whitelistPlayers then whitelistPlayers = cfg.whitelistPlayers end
-
-    if cfg.silentAimFovColor then silentAimFovColor = Color3.new(unpack(cfg.silentAimFovColor)) end
-    if cfg.silentAimSnaplineColor then silentAimSnaplineColor = Color3.new(unpack(cfg.silentAimSnaplineColor)) end
-    if cfg.hitMarkerColor then hitMarkerColor = Color3.new(unpack(cfg.hitMarkerColor)) end
-    if cfg.espBoxColor then espBoxColor = Color3.new(unpack(cfg.espBoxColor)) end
-    if cfg.espNameColor then espNameColor = Color3.new(unpack(cfg.espNameColor)) end
-    if cfg.espDistColor then espDistColor = Color3.new(unpack(cfg.espDistColor)) end
-    if cfg.espWeapColor then espWeapColor = Color3.new(unpack(cfg.espWeapColor)) end
-    if cfg.customHandsColor then customHandsColor = Color3.new(unpack(cfg.customHandsColor)) end
-    if cfg.gunChamsColor then gunChamsColor = Color3.new(unpack(cfg.gunChamsColor)) end
-    if cfg.gammaColor then gammaColor = Color3.new(unpack(cfg.gammaColor)) end
-    if cfg.fogColor then fogColor = Color3.new(unpack(cfg.fogColor)) end
-
-    if customHandsEnabled then SetupCustomHands() else RemoveCustomHands() end
-    if skyboxEnabled then ApplySkybox(skyboxMode) end
-    if viewModelEnabled then ApplyViewModel() else RemoveViewModel() end
-    if fullbrightEnabled then
-        Lighting.Brightness = 3
-        Lighting.ClockTime = 14
-        Lighting.GlobalShadows = false
-    end
-    if gammaEnabled then
-        Lighting.Ambient = gammaColor
-        Lighting.OutdoorAmbient = gammaColor
-        Lighting.Brightness = gammaValue/10
-    end
-    if fogEnabled then
-        Lighting.FogStart = fogStart
-        Lighting.FogEnd = fogEnd
-        Lighting.FogColor = fogColor
-    end
-    RenderWhitelist()
-end
-
--- ============================================================
 -- FOV CIRCLE
 -- ============================================================
 local FOVFrameGui = Instance.new("ScreenGui")
 FOVFrameGui.Name = "AstraFOV"
 FOVFrameGui.ResetOnSpawn = false
 FOVFrameGui.IgnoreGuiInset = true
-FOVFrameGui.Parent = GUI_PARENT
+pcall(function() FOVFrameGui.Parent = GUI_PARENT end)
+if not FOVFrameGui.Parent then FOVFrameGui.Parent = LP:WaitForChild("PlayerGui") end
 
 local FOVFrame = Instance.new("Frame")
 FOVFrame.BackgroundTransparency = 1
@@ -2541,7 +2540,8 @@ function CreateFreezeButton()
     freezeBtnGui = Instance.new("ScreenGui")
     freezeBtnGui.Name = "AstraFreezeUI"
     freezeBtnGui.ResetOnSpawn = false
-    freezeBtnGui.Parent = GUI_PARENT
+    pcall(function() freezeBtnGui.Parent = GUI_PARENT end)
+    if not freezeBtnGui.Parent then freezeBtnGui.Parent = LP:WaitForChild("PlayerGui") end
 
     freezeBtn = Instance.new("TextButton")
     freezeBtn.Size = UDim2.new(0,110,0,45)
@@ -2591,7 +2591,8 @@ function CreateTPButton()
     tpBtnGui = Instance.new("ScreenGui")
     tpBtnGui.Name = "AstraTPButton"
     tpBtnGui.ResetOnSpawn = false
-    tpBtnGui.Parent = GUI_PARENT
+    pcall(function() tpBtnGui.Parent = GUI_PARENT end)
+    if not tpBtnGui.Parent then tpBtnGui.Parent = LP:WaitForChild("PlayerGui") end
 
     tpBtn = Instance.new("TextButton")
     tpBtn.Size = UDim2.new(0,110,0,45)
@@ -2620,7 +2621,8 @@ function CreateAirWalkButton()
     awBtnGui = Instance.new("ScreenGui")
     awBtnGui.Name = "AstraAirWalkButton"
     awBtnGui.ResetOnSpawn = false
-    awBtnGui.Parent = GUI_PARENT
+    pcall(function() awBtnGui.Parent = GUI_PARENT end)
+    if not awBtnGui.Parent then awBtnGui.Parent = LP:WaitForChild("PlayerGui") end
 
     awBtn = Instance.new("TextButton")
     awBtn.Size = UDim2.new(0,130,0,45)
