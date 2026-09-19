@@ -1,4 +1,4 @@
--- Project Astra v18 | t.me/epsteinhub
+-- Project Astra v19 | t.me/epsteinhub
 
 local UIS = game:GetService("UserInputService")
 local RS = game:GetService("RunService")
@@ -33,7 +33,9 @@ ScreenGui.ResetOnSpawn = false
 ScreenGui.IgnoreGuiInset = true
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 pcall(function() ScreenGui.Parent = GUI_PARENT end)
-if not ScreenGui.Parent then ScreenGui.Parent = LP:WaitForChild("PlayerGui") end
+if not ScreenGui.Parent then
+    ScreenGui.Parent = LP:WaitForChild("PlayerGui")
+end
 
 local Main = Instance.new("Frame")
 Main.Name = "Main"
@@ -137,9 +139,6 @@ SepLine2.BackgroundColor3 = ACCENT
 SepLine2.BorderSizePixel = 0
 SepLine2.Parent = Main
 
--- ============================================================
--- PAGES (2 колонки)
--- ============================================================
 local Pages = {}
 local ScrollsL = {}
 local ScrollsR = {}
@@ -197,7 +196,6 @@ for i,name in ipairs(TabNames) do
     ScrollsR[i] = right
 end
 
--- Side
 local Side = Instance.new("Frame")
 Side.Size = UDim2.fromOffset(161,87)
 Side.Position = UDim2.fromOffset(68,185)
@@ -286,9 +284,6 @@ for i,btn in ipairs(TabButtons) do
 end
 SelectTab(1)
 
--- ============================================================
--- STATE
--- ============================================================
 local SILENT_AIM = false
 local HIT_CHANCE = 95
 local HIT_PART = "Head"
@@ -411,15 +406,14 @@ local keybinds = {
     Freeze = Enum.KeyCode.X,
 }
 
--- ============================================================
--- COLOR PICKER
--- ============================================================
 local PickerGui = Instance.new("ScreenGui")
 PickerGui.Name = "AstraColorPicker"
 PickerGui.ResetOnSpawn = false
 PickerGui.DisplayOrder = 99999
 pcall(function() PickerGui.Parent = GUI_PARENT end)
-if not PickerGui.Parent then PickerGui.Parent = LP:WaitForChild("PlayerGui") end
+if not PickerGui.Parent then
+    PickerGui.Parent = LP:WaitForChild("PlayerGui")
+end
 
 local PickerMain = Instance.new("Frame")
 PickerMain.Size = UDim2.fromOffset(280,260)
@@ -579,7 +573,9 @@ HueBar.InputBegan:Connect(function(i)
 end)
 
 UIS.InputChanged:Connect(function(i)
-    if i.UserInputType ~= Enum.UserInputType.MouseMovement and i.UserInputType ~= Enum.UserInputType.Touch then return end
+    if i.UserInputType ~= Enum.UserInputType.MouseMovement and i.UserInputType ~= Enum.UserInputType.Touch then
+        return
+    end
     if PaletteDrag then UpdatePalettePos(i) end
     if HueDrag then UpdateHuePos(i) end
 end)
@@ -603,7 +599,6 @@ local function OpenColorPicker(startColor, callback)
     HSV_h, HSV_s, HSV_v = h, s, v
     PickTarget = callback
     UpdatePick()
-
     local vp = Camera.ViewportSize
     local px = math.clamp(vp.X/2 - 140, 5, vp.X - 290)
     local py = math.clamp(vp.Y/2 - 130, 5, vp.Y - 270)
@@ -611,9 +606,6 @@ local function OpenColorPicker(startColor, callback)
     PickerMain.Visible = true
 end
 
--- ============================================================
--- UI COMPONENTS
--- ============================================================
 local function Checkbox(parent, label, default, callback, yPos)
     local container = Instance.new("Frame")
     container.Position = UDim2.fromOffset(10, yPos)
@@ -645,7 +637,9 @@ local function Checkbox(parent, label, default, callback, yPos)
     box.MouseButton1Click:Connect(function()
         state = not state
         fill.Visible = state
-        if callback then pcall(callback, state) end
+        if callback then
+            pcall(callback, state)
+        end
     end)
     return container
 end
@@ -671,7 +665,9 @@ local function Slider(parent, label, minV, maxV, default, callback, yPos, suffix
     Stroke(bar,1)
 
     local ratio = 0
-    if maxV > minV then ratio = (default - minV) / (maxV - minV) end
+    if maxV > minV then
+        ratio = (default - minV) / (maxV - minV)
+    end
     local fill = Instance.new("Frame")
     fill.Size = UDim2.new(ratio,0,1,0)
     fill.BackgroundColor3 = ACCENT
@@ -685,32 +681,36 @@ local function Slider(parent, label, minV, maxV, default, callback, yPos, suffix
     btn.ZIndex = 5
     btn.Parent = bar
 
-    local dragging = false
+    local draggingSlider = false
     local function update(input)
         local sizeX = bar.AbsoluteSize.X
-        if sizeX <= 0 then return end
+        if sizeX <= 0 then
+            return
+        end
         local x = input.Position.X - bar.AbsolutePosition.X
         local r = math.clamp(x / sizeX, 0, 1)
         fill.Size = UDim2.new(r,0,1,0)
         local v = math.floor(minV + (maxV-minV)*r + 0.5)
         valLabel.Text = tostring(v)..suffix
-        if callback then pcall(callback, v) end
+        if callback then
+            pcall(callback, v)
+        end
     end
 
     btn.InputBegan:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
+            draggingSlider = true
             update(i)
         end
     end)
     UIS.InputChanged:Connect(function(i)
-        if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+        if draggingSlider and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
             update(i)
         end
     end)
     UIS.InputEnded:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
+            draggingSlider = false
         end
     end)
     return container
@@ -779,7 +779,9 @@ local function Dropdown(parent, label, options, default, callback, yPos)
         ob.MouseButton1Click:Connect(function()
             selText.Text = opt
             menu.Visible = false
-            if callback then pcall(callback, opt) end
+            if callback then
+                pcall(callback, opt)
+            end
         end)
     end
 
@@ -868,15 +870,11 @@ local function Section(parent, title, y)
     return 26
 end
 
--- ============================================================
--- COMBAT (2 columns)
--- ============================================================
 local CL = ScrollsL[1]
 local CR = ScrollsR[1]
 local cYl = 0
 local cYr = 0
 
--- LEFT
 cYl = cYl + Section(CL, "SILENT AIM", cYl)
 Checkbox(CL, "Enable Silent Aim", false, function(v) SILENT_AIM = v end, cYl); cYl = cYl + 26
 Checkbox(CL, "Team Check", false, function(v) TEAM_CHECK = v end, cYl); cYl = cYl + 26
@@ -897,13 +895,12 @@ Checkbox(CL, "Enable Tracer", false, function(v) TRACER = v end, cYl); cYl = cYl
 Slider(CL, "Lifetime", 1, 10, 3, function(v) TRACER_LIFE = v end, cYl, "s"); cYl = cYl + 46
 Dropdown(CL, "Type", {"Red Laser","Neon Linia Bruh"}, "Red Laser", function(v) TRACER_TYPE = v end, cYl); cYl = cYl + 54
 
--- RIGHT
 cYr = cYr + Section(CR, "RAPID FIRE", cYr)
 Checkbox(CR, "Enable Rapid Fire", false, function(v) RAPID_FIRE = v end, cYr); cYr = cYr + 26
 Slider(CR, "Rate Value (x100k)", 1, 100, 100, function(v) RAPID_VALUE = v * 100000 end, cYr); cYr = cYr + 46
 
 cYr = cYr + 6
-cYr = cYr + Section(CR, "WEAPON (RUSTED)", cYr)
+cYr = cYr + Section(CR, "WEAPON", cYr)
 Checkbox(CR, "Instant Hit", false, function(v) instantHitEnabled = v end, cYr); cYr = cYr + 26
 Checkbox(CR, "No Recoil", false, function(v) noRecoilEnabled = v end, cYr); cYr = cYr + 26
 Checkbox(CR, "No Spread", false, function(v) noSpreadEnabled = v end, cYr); cYr = cYr + 26
@@ -925,15 +922,11 @@ cYr = cYr + Section(CR, "HIT SOUND", cYr)
 Checkbox(CR, "Enable Hit Sound", false, function(v) HIT_SOUND = v end, cYr); cYr = cYr + 26
 Slider(CR, "Volume", 0, 10, 1, function(v) HIT_SOUND_VOL = v end, cYr); cYr = cYr + 46
 
--- ============================================================
--- VISUALS (2 columns)
--- ============================================================
 local VL = ScrollsL[2]
 local VR = ScrollsR[2]
 local vYl = 0
 local vYr = 0
 
--- LEFT: ESP + Custom Hands + View Model
 vYl = vYl + Section(VL, "ESP", vYl)
 Checkbox(VL, "Enable ESP", false, function(v) espEnabled = v end, vYl); vYl = vYl + 26
 Checkbox(VL, "Box", true, function(v) espBox = v end, vYl); vYl = vYl + 26
@@ -950,7 +943,11 @@ vYl = vYl + 6
 vYl = vYl + Section(VL, "CUSTOM HANDS", vYl)
 Checkbox(VL, "Enable Custom Hands", false, function(v)
     customHandsEnabled = v
-    if v then SetupCustomHands() else RemoveCustomHands() end
+    if v then
+        SetupCustomHands()
+    else
+        RemoveCustomHands()
+    end
 end, vYl); vYl = vYl + 26
 ColorRow(VL, "Hands Color", function() return customHandsColor end, function(c)
     customHandsColor = c
@@ -964,13 +961,16 @@ vYl = vYl + 6
 vYl = vYl + Section(VL, "VIEW MODEL", vYl)
 Checkbox(VL, "Enable View Model", false, function(v)
     viewModelEnabled = v
-    if v then ApplyViewModel() else RemoveViewModel() end
+    if v then
+        ApplyViewModel()
+    else
+        RemoveViewModel()
+    end
 end, vYl); vYl = vYl + 26
 Slider(VL, "X", -20, 20, 5, function(v) viewModelX = v end, vYl); vYl = vYl + 46
 Slider(VL, "Y", -20, 20, -2, function(v) viewModelY = v end, vYl); vYl = vYl + 46
 Slider(VL, "Z", -20, 20, -8, function(v) viewModelZ = v end, vYl); vYl = vYl + 46
 
--- RIGHT: Gun Chams, Gamma, Fog, Skybox, Camera, World
 vYr = vYr + Section(VR, "GUN CHAMS", vYr)
 Checkbox(VR, "Enable Gun Chams", false, function(v) gunChamsEnabled = v end, vYr); vYr = vYr + 26
 ColorRow(VR, "Gun Chams Color", function() return gunChamsColor end, function(c) gunChamsColor = c end, vYr); vYr = vYr + 26
@@ -998,7 +998,9 @@ ColorRow(VR, "Gamma Color", function() return gammaColor end, function(c)
 end, vYr); vYr = vYr + 26
 Slider(VR, "Gamma Brightness (x0.1)", 1, 50, 10, function(v)
     gammaValue = v
-    if gammaEnabled then Lighting.Brightness = v/10 end
+    if gammaEnabled then
+        Lighting.Brightness = v/10
+    end
 end, vYr); vYr = vYr + 46
 
 vYr = vYr + 6
@@ -1016,30 +1018,43 @@ Checkbox(VR, "Enable Fog", false, function(v)
 end, vYr); vYr = vYr + 26
 ColorRow(VR, "Fog Color", function() return fogColor end, function(c)
     fogColor = c
-    if fogEnabled then Lighting.FogColor = c end
+    if fogEnabled then
+        Lighting.FogColor = c
+    end
 end, vYr); vYr = vYr + 26
 Slider(VR, "Fog Start", 0, 2000, 100, function(v)
     fogStart = v
-    if fogEnabled then Lighting.FogStart = v end
+    if fogEnabled then
+        Lighting.FogStart = v
+    end
 end, vYr); vYr = vYr + 46
 Slider(VR, "Fog End", 50, 5000, 500, function(v)
     fogEnd = v
-    if fogEnabled then Lighting.FogEnd = v end
+    if fogEnabled then
+        Lighting.FogEnd = v
+    end
 end, vYr); vYr = vYr + 46
 
 vYr = vYr + 6
 vYr = vYr + Section(VR, "SKYBOX", vYr)
 Checkbox(VR, "Enable Skybox", false, function(v)
     skyboxEnabled = v
-    if not v and activeSky then activeSky:Destroy(); activeSky = nil end
-    if v then ApplySkybox(skyboxMode) end
+    if not v and activeSky then
+        activeSky:Destroy()
+        activeSky = nil
+    end
+    if v then
+        ApplySkybox(skyboxMode)
+    end
 end, vYr); vYr = vYr + 26
 Dropdown(VR, "Skybox Preset",
     {"None","Aurorka","Galaxy","Godly","Super Sayien","North Star","Blue Lord","Pink Aura","Angel Wing","Sweet Heart","Ethereal Aura"},
     "None",
     function(v)
         skyboxMode = v
-        if skyboxEnabled then ApplySkybox(v) end
+        if skyboxEnabled then
+            ApplySkybox(v)
+        end
     end, vYr); vYr = vYr + 54
 
 vYr = vYr + 6
@@ -1070,26 +1085,26 @@ Checkbox(VR, "Fullbright", false, function(v)
     end
 end, vYr); vYr = vYr + 26
 
--- ============================================================
--- MISC (2 columns)
--- ============================================================
 local ML = ScrollsL[3]
 local MR = ScrollsR[3]
 local mYl = 0
 local mYr = 0
 
--- LEFT: Movement, Fly
 mYl = mYl + Section(ML, "MOVEMENT", mYl)
 Checkbox(ML, "Speed Hack", false, function(v)
     speedHackEnabled = v
     local h = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-    if h then h.WalkSpeed = v and speedValue or 16 end
+    if h then
+        h.WalkSpeed = v and speedValue or 16
+    end
 end, mYl); mYl = mYl + 26
 Slider(ML, "Speed Value", 16, 500, 50, function(v)
     speedValue = v
     if speedHackEnabled then
         local h = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-        if h then h.WalkSpeed = v end
+        if h then
+            h.WalkSpeed = v
+        end
     end
 end, mYl); mYl = mYl + 46
 Checkbox(ML, "Infinite Jump", false, function(v) infJumpEnabled = v end, mYl); mYl = mYl + 26
@@ -1103,10 +1118,13 @@ Checkbox(ML, "Enable Fly", false, function(v) flyEnabled = v end, mYl); mYl = mY
 Slider(ML, "Fly Speed", 5, 500, 50, function(v) flySpeed = v end, mYl); mYl = mYl + 46
 KeybindRow(ML, "Fly Keybind", keybinds.Fly, function(k) keybinds.Fly = k end, mYl); mYl = mYl + 26
 
--- RIGHT: TP, Freeze, Air Walk
 mYr = mYr + Section(MR, "TELEPORT", mYr)
 Checkbox(MR, "Show TP Button (mobile)", false, function(v)
-    if v then CreateTPButton() else DestroyTPButton() end
+    if v then
+        CreateTPButton()
+    else
+        DestroyTPButton()
+    end
 end, mYr); mYr = mYr + 26
 KeybindRow(MR, "TP Keybind (PC)", tpKey, function(k) tpKey = k end, mYr); mYr = mYr + 26
 Slider(MR, "TP Distance", 10, 500, 100, function(v) tpDistance = v end, mYr); mYr = mYr + 46
@@ -1116,7 +1134,11 @@ mYr = mYr + Section(MR, "FREEZE UP", mYr)
 Checkbox(MR, "Enable Freeze (hold key)", false, function(v) freezeEnabled = v end, mYr); mYr = mYr + 26
 KeybindRow(MR, "Freeze Keybind", keybinds.Freeze, function(k) keybinds.Freeze = k end, mYr); mYr = mYr + 26
 Checkbox(MR, "Show Mobile Freeze Button", false, function(v)
-    if v then CreateFreezeButton() else DestroyFreezeButton() end
+    if v then
+        CreateFreezeButton()
+    else
+        DestroyFreezeButton()
+    end
 end, mYr); mYr = mYr + 26
 
 mYr = mYr + 6
@@ -1125,20 +1147,20 @@ KeybindRow(MR, "Air Walk Keybind", airWalkKey, function(k) airWalkKey = k end, m
 Slider(MR, "Air Walk Duration", 1, 10, 3, function(v) airWalkDuration = v end, mYr, "s"); mYr = mYr + 46
 Slider(MR, "Air Walk Height", 20, 300, 100, function(v) airWalkHeight = v end, mYr); mYr = mYr + 46
 Checkbox(MR, "Show Air Walk Button (mobile)", false, function(v)
-    if v then CreateAirWalkButton() else DestroyAirWalkButton() end
+    if v then
+        CreateAirWalkButton()
+    else
+        DestroyAirWalkButton()
+    end
 end, mYr); mYr = mYr + 26
 
--- ============================================================
--- SETTINGS (2 columns)
--- ============================================================
 local SL = ScrollsL[4]
 local SR = ScrollsR[4]
 local sYl = 0
 local sYr = 0
 
--- LEFT: Info + Whitelist
 sYl = sYl + Section(SL, "INFO", sYl)
-MakeText(SL, "Project Astra v18", UDim2.fromOffset(10,sYl), UDim2.new(1,-20,0,22), 13, ACCENT); sYl = sYl + 24
+MakeText(SL, "Project Astra v19", UDim2.fromOffset(10,sYl), UDim2.new(1,-20,0,22), 13, ACCENT); sYl = sYl + 24
 MakeText(SL, "t.me/epsteinhub", UDim2.fromOffset(10,sYl), UDim2.new(1,-20,0,22), 13, WHITE); sYl = sYl + 24
 
 sYl = sYl + 6
@@ -1150,7 +1172,7 @@ end, sYl); sYl = sYl + 26
 
 local wlFrame = Instance.new("ScrollingFrame")
 wlFrame.Position = UDim2.fromOffset(10, sYl)
-wlFrame.Size = UDim2.new(1,-20,0,300)
+wlFrame.Size = UDim2.new(1,-20,0,280)
 wlFrame.BackgroundColor3 = PANEL
 wlFrame.BorderSizePixel = 0
 wlFrame.ScrollBarThickness = 3
@@ -1160,11 +1182,13 @@ wlFrame.CanvasSize = UDim2.new()
 wlFrame.Parent = SL
 Stroke(wlFrame,1)
 Instance.new("UIListLayout",wlFrame).Padding = UDim.new(0,3)
-sYl = sYl + 306
+sYl = sYl + 286
 
 function RenderWhitelist()
     for _, c in ipairs(wlFrame:GetChildren()) do
-        if c:IsA("TextButton") then c:Destroy() end
+        if c:IsA("TextButton") then
+            c:Destroy()
+        end
     end
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LP then
@@ -1192,35 +1216,72 @@ Players.PlayerAdded:Connect(RenderWhitelist)
 Players.PlayerRemoving:Connect(RenderWhitelist)
 RenderWhitelist()
 
--- RIGHT: Configs
 local HAS_FS = (type(writefile) == "function" and type(readfile) == "function" and type(isfile) == "function")
 local HAS_LIST = (type(listfiles) == "function")
 local HAS_FOLDER = (type(makefolder) == "function" and type(isfolder) == "function")
 
 local function CollectConfig()
     return {
-        SILENT_AIM = SILENT_AIM, HIT_CHANCE = HIT_CHANCE, HIT_PART = HIT_PART,
-        FOV_RADIUS = FOV_RADIUS, SHOW_FOV = SHOW_FOV, TEAM_CHECK = TEAM_CHECK,
-        SNAPLINE = SNAPLINE, TRACER = TRACER, TRACER_TYPE = TRACER_TYPE, TRACER_LIFE = TRACER_LIFE,
-        RAPID_FIRE = RAPID_FIRE, RAPID_VALUE = RAPID_VALUE,
-        HIT_SOUND = HIT_SOUND, HIT_SOUND_ID = HIT_SOUND_ID, HIT_SOUND_VOL = HIT_SOUND_VOL,
-        hitMarkerEnabled = hitMarkerEnabled, hitMarkerSize = hitMarkerSize, hitMarkerDuration = hitMarkerDuration,
-        instantHitEnabled = instantHitEnabled, noRecoilEnabled = noRecoilEnabled, noSpreadEnabled = noSpreadEnabled,
-        instantReloadEnabled = instantReloadEnabled, autoReloadEnabled = autoReloadEnabled,
-        noEquipDelayEnabled = noEquipDelayEnabled, fullAutoEnabled = fullAutoEnabled, bulletSpeedValue = bulletSpeedValue,
-        cameraFovEnabled = cameraFovEnabled, cameraFovValue = cameraFovValue,
-        noFogEnabled = noFogEnabled, fullbrightEnabled = fullbrightEnabled,
-        espEnabled = espEnabled, espBox = espBox, espName = espName, espHealth = espHealth,
-        espDistance = espDistance, espWeapon = espWeapon,
-        customHandsEnabled = customHandsEnabled, customHandsTransp = customHandsTransp,
-        viewModelEnabled = viewModelEnabled, viewModelX = viewModelX, viewModelY = viewModelY, viewModelZ = viewModelZ,
-        gunChamsEnabled = gunChamsEnabled, skyboxEnabled = skyboxEnabled, skyboxMode = skyboxMode,
-        gammaEnabled = gammaEnabled, gammaValue = gammaValue,
-        fogEnabled = fogEnabled, fogStart = fogStart, fogEnd = fogEnd,
-        speedHackEnabled = speedHackEnabled, speedValue = speedValue,
-        infJumpEnabled = infJumpEnabled, noClipEnabled = noClipEnabled, bhopEnabled = bhopEnabled,
-        JUMP_SHOT = JUMP_SHOT, flyEnabled = flyEnabled, flySpeed = flySpeed,
-        whitelistEnabled = whitelistEnabled, whitelistPlayers = whitelistPlayers,
+        SILENT_AIM = SILENT_AIM,
+        HIT_CHANCE = HIT_CHANCE,
+        HIT_PART = HIT_PART,
+        FOV_RADIUS = FOV_RADIUS,
+        SHOW_FOV = SHOW_FOV,
+        TEAM_CHECK = TEAM_CHECK,
+        SNAPLINE = SNAPLINE,
+        TRACER = TRACER,
+        TRACER_TYPE = TRACER_TYPE,
+        TRACER_LIFE = TRACER_LIFE,
+        RAPID_FIRE = RAPID_FIRE,
+        RAPID_VALUE = RAPID_VALUE,
+        HIT_SOUND = HIT_SOUND,
+        HIT_SOUND_ID = HIT_SOUND_ID,
+        HIT_SOUND_VOL = HIT_SOUND_VOL,
+        hitMarkerEnabled = hitMarkerEnabled,
+        hitMarkerSize = hitMarkerSize,
+        hitMarkerDuration = hitMarkerDuration,
+        instantHitEnabled = instantHitEnabled,
+        noRecoilEnabled = noRecoilEnabled,
+        noSpreadEnabled = noSpreadEnabled,
+        instantReloadEnabled = instantReloadEnabled,
+        autoReloadEnabled = autoReloadEnabled,
+        noEquipDelayEnabled = noEquipDelayEnabled,
+        fullAutoEnabled = fullAutoEnabled,
+        bulletSpeedValue = bulletSpeedValue,
+        cameraFovEnabled = cameraFovEnabled,
+        cameraFovValue = cameraFovValue,
+        noFogEnabled = noFogEnabled,
+        fullbrightEnabled = fullbrightEnabled,
+        espEnabled = espEnabled,
+        espBox = espBox,
+        espName = espName,
+        espHealth = espHealth,
+        espDistance = espDistance,
+        espWeapon = espWeapon,
+        customHandsEnabled = customHandsEnabled,
+        customHandsTransp = customHandsTransp,
+        viewModelEnabled = viewModelEnabled,
+        viewModelX = viewModelX,
+        viewModelY = viewModelY,
+        viewModelZ = viewModelZ,
+        gunChamsEnabled = gunChamsEnabled,
+        skyboxEnabled = skyboxEnabled,
+        skyboxMode = skyboxMode,
+        gammaEnabled = gammaEnabled,
+        gammaValue = gammaValue,
+        fogEnabled = fogEnabled,
+        fogStart = fogStart,
+        fogEnd = fogEnd,
+        speedHackEnabled = speedHackEnabled,
+        speedValue = speedValue,
+        infJumpEnabled = infJumpEnabled,
+        noClipEnabled = noClipEnabled,
+        bhopEnabled = bhopEnabled,
+        JUMP_SHOT = JUMP_SHOT,
+        flyEnabled = flyEnabled,
+        flySpeed = flySpeed,
+        whitelistEnabled = whitelistEnabled,
+        whitelistPlayers = whitelistPlayers,
         silentAimFovColor = {silentAimFovColor.R, silentAimFovColor.G, silentAimFovColor.B},
         silentAimSnaplineColor = {silentAimSnaplineColor.R, silentAimSnaplineColor.G, silentAimSnaplineColor.B},
         hitMarkerColor = {hitMarkerColor.R, hitMarkerColor.G, hitMarkerColor.B},
@@ -1308,9 +1369,19 @@ function ApplyConfig(cfg)
     if cfg.gunChamsColor then gunChamsColor = Color3.new(unpack(cfg.gunChamsColor)) end
     if cfg.gammaColor then gammaColor = Color3.new(unpack(cfg.gammaColor)) end
     if cfg.fogColor then fogColor = Color3.new(unpack(cfg.fogColor)) end
-    if customHandsEnabled then SetupCustomHands() else RemoveCustomHands() end
-    if skyboxEnabled then ApplySkybox(skyboxMode) end
-    if viewModelEnabled then ApplyViewModel() else RemoveViewModel() end
+    if customHandsEnabled then
+        SetupCustomHands()
+    else
+        RemoveCustomHands()
+    end
+    if skyboxEnabled then
+        ApplySkybox(skyboxMode)
+    end
+    if viewModelEnabled then
+        ApplyViewModel()
+    else
+        RemoveViewModel()
+    end
     if fullbrightEnabled then
         Lighting.Brightness = 3
         Lighting.ClockTime = 14
@@ -1391,19 +1462,25 @@ else
     end
 
     local function GetConfigPath(name)
-        if not name or name == "" then return nil end
+        if not name or name == "" then
+            return nil
+        end
         return CONFIG_FOLDER .. "/" .. name .. ".json"
     end
 
     local function ListConfigs()
         local list = {}
-        if not HAS_LIST then return list end
+        if not HAS_LIST then
+            return list
+        end
         EnsureFolder()
         local ok, files = pcall(listfiles, CONFIG_FOLDER)
         if ok and files then
             for _, f in ipairs(files) do
                 local n = f:match("([^/\\]+)%.json$")
-                if n then table.insert(list, n) end
+                if n then
+                    table.insert(list, n)
+                end
             end
         end
         return list
@@ -1411,7 +1488,9 @@ else
 
     local function RenderConfigList()
         for _, c in ipairs(cfgListFrame:GetChildren()) do
-            if c:IsA("TextButton") or c:IsA("Frame") or c:IsA("TextLabel") then c:Destroy() end
+            if c:IsA("TextButton") or c:IsA("Frame") or c:IsA("TextLabel") then
+                c:Destroy()
+            end
         end
         local configs = ListConfigs()
         if #configs == 0 then
@@ -1490,7 +1569,9 @@ else
     saveBtn.MouseButton1Click:Connect(function()
         pcall(function()
             local name = nameBox.Text
-            if name == "" then name = "default" end
+            if name == "" then
+                name = "default"
+            end
             EnsureFolder()
             local path = GetConfigPath(name)
             if path then
@@ -1503,15 +1584,14 @@ else
     RenderConfigList()
 end
 
--- ============================================================
--- FOV CIRCLE
--- ============================================================
 local FOVFrameGui = Instance.new("ScreenGui")
 FOVFrameGui.Name = "AstraFOV"
 FOVFrameGui.ResetOnSpawn = false
 FOVFrameGui.IgnoreGuiInset = true
 pcall(function() FOVFrameGui.Parent = GUI_PARENT end)
-if not FOVFrameGui.Parent then FOVFrameGui.Parent = LP:WaitForChild("PlayerGui") end
+if not FOVFrameGui.Parent then
+    FOVFrameGui.Parent = LP:WaitForChild("PlayerGui")
+end
 
 local FOVFrame = Instance.new("Frame")
 FOVFrame.BackgroundTransparency = 1
@@ -1558,7 +1638,10 @@ local function getSilentTarget()
         local pos, onS = Camera:WorldToViewportPoint(part.Position)
         if not onS then continue end
         local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
-        if dist < bd then bd = dist; best = part end
+        if dist < bd then
+            bd = dist
+            best = part
+        end
     end
     return best
 end
@@ -1630,11 +1713,15 @@ local function CreateHitmarker(worldPosition)
     ActiveHitmarkers[markerId] = markerData
     task.spawn(function()
         local duration = hitMarkerDuration
-        if duration < 0.05 then duration = 0.05 end
+        if duration < 0.05 then
+            duration = 0.05
+        end
         local totalSteps = 20
         local stepTime = duration / totalSteps
         for i = totalSteps, 0, -1 do
-            if not ActiveHitmarkers[markerId] then return end
+            if not ActiveHitmarkers[markerId] then
+                return
+            end
             markerData.Opacity = i / totalSteps
             task.wait(stepTime)
         end
@@ -1654,20 +1741,28 @@ local function ClearAllHitmarkers()
     ActiveHitmarkers = {}
 end
 
-LP.CharacterAdded:Connect(function() ClearAllHitmarkers() end)
-LP.CharacterRemoving:Connect(function() ClearAllHitmarkers() end)
+LP.CharacterAdded:Connect(function()
+    ClearAllHitmarkers()
+end)
+LP.CharacterRemoving:Connect(function()
+    ClearAllHitmarkers()
+end)
 
 LP.CharacterAdded:Connect(function(char)
     local hum = char:WaitForChild("Humanoid", 5)
     if hum then
-        hum.Died:Connect(function() ClearAllHitmarkers() end)
+        hum.Died:Connect(function()
+            ClearAllHitmarkers()
+        end)
     end
 end)
 
 if LP.Character then
     local hum = LP.Character:FindFirstChildOfClass("Humanoid")
     if hum then
-        hum.Died:Connect(function() ClearAllHitmarkers() end)
+        hum.Died:Connect(function()
+            ClearAllHitmarkers()
+        end)
     end
 end
 
@@ -1698,7 +1793,6 @@ RS.RenderStepped:Connect(function()
     end
 end)
 
--- SILENT AIM
 do
     local blaster = ReplicatedStorage:FindFirstChild("Blaster")
     local castRaysFunc = nil
@@ -1714,7 +1808,6 @@ do
             end
         end
     end
-
     if castRaysFunc and type(hookfunction) == "function" then
         pcall(function()
             local original
@@ -1736,7 +1829,9 @@ do
                     return result
                 end
                 if TRACER then
-                    pcall(function() CreateTracer(origin, target.Position) end)
+                    pcall(function()
+                        CreateTracer(origin, target.Position)
+                    end)
                 end
                 if HIT_CHANCE/100 > math.random() then
                     if type(result) == "table" then
@@ -1754,7 +1849,9 @@ do
                             end
                         end
                     end
-                    pcall(function() CreateHitmarker(target.Position) end)
+                    pcall(function()
+                        CreateHitmarker(target.Position)
+                    end)
                     if HIT_SOUND then
                         task.spawn(function()
                             local s = Instance.new("Sound")
@@ -1778,11 +1875,15 @@ if type(getgc) == "function" then
     pcall(function()
         for _, v in pairs(getgc(true)) do
             if type(v) == "table" then
-                local ok, canShoot = pcall(function() return rawget(v, "canShoot") end)
+                local ok, canShoot = pcall(function()
+                    return rawget(v, "canShoot")
+                end)
                 if ok and type(canShoot) == "function" then
                     local orig = canShoot
                     v.canShoot = function(...)
-                        if JUMP_SHOT then return true end
+                        if JUMP_SHOT then
+                            return true
+                        end
                         return orig(...)
                     end
                 end
@@ -1807,7 +1908,9 @@ task.spawn(function()
                     if noSpreadEnabled or SILENT_AIM then
                         local dirs = table.create(count)
                         local dir = cf.LookVector
-                        for i = 1, count do dirs[i] = dir end
+                        for i = 1, count do
+                            dirs[i] = dir
+                        end
                         return dirs
                     end
                     return original(cf, count, spread, seed)
@@ -1824,7 +1927,9 @@ task.spawn(function()
                 local CameraRecoiler = require(recoiler)
                 local oldRecoil = CameraRecoiler.recoil
                 CameraRecoiler.recoil = function(...)
-                    if noRecoilEnabled then return end
+                    if noRecoilEnabled then
+                        return
+                    end
                     return oldRecoil(...)
                 end
             end
@@ -1835,7 +1940,9 @@ task.spawn(function()
                 if not (instantReloadEnabled or autoReloadEnabled) then
                     return oldReload(self)
                 end
-                if tick() - lastReloadTime < 0.15 then return end
+                if tick() - lastReloadTime < 0.15 then
+                    return
+                end
                 lastReloadTime = tick()
                 local maxAmmo = self.blaster and self.blaster:GetAttribute("magazineSize") or 30
                 self.ammo = maxAmmo
@@ -1849,7 +1956,9 @@ task.spawn(function()
                 pcall(function()
                     local remotes = blaster:FindFirstChild("Remotes")
                     local reloadRemote = remotes and remotes:FindFirstChild("Reload")
-                    if reloadRemote then reloadRemote:FireServer(self.blaster) end
+                    if reloadRemote then
+                        reloadRemote:FireServer(self.blaster)
+                    end
                 end)
             end
         end
@@ -1861,7 +1970,9 @@ task.spawn(function()
                     self.isWeaponBlocked = false
                 end
                 if (instantReloadEnabled or autoReloadEnabled) and self.ammo ~= nil and self.ammo <= 0 then
-                    pcall(function() blasterController.reload(self) end)
+                    pcall(function()
+                        blasterController.reload(self)
+                    end)
                 end
                 if noEquipDelayEnabled or instantReloadEnabled or autoReloadEnabled then
                     local sc = _G.SprintController
@@ -1877,7 +1988,9 @@ task.spawn(function()
             blasterController.startShooting = function(self)
                 if fullAutoEnabled then
                     pcall(function()
-                        if self.blaster then self.blaster:SetAttribute("fireMode", "Auto") end
+                        if self.blaster then
+                            self.blaster:SetAttribute("fireMode", "Auto")
+                        end
                     end)
                 end
                 return oldStartShooting(self)
@@ -1887,7 +2000,9 @@ task.spawn(function()
             local oldEquip = blasterController.equip
             blasterController.equip = function(self)
                 oldEquip(self)
-                if noEquipDelayEnabled then self.canShootAfterEquip = true end
+                if noEquipDelayEnabled then
+                    self.canShootAfterEquip = true
+                end
             end
         end
     end)
@@ -1963,7 +2078,9 @@ local function processToolForRapidFire(tool)
     if not tool or not tool:IsA("Tool") then return end
     for attrName, _ in pairs(tool:GetAttributes()) do
         if attrName:lower() == "rateoffire" then
-            pcall(function() tool:SetAttribute(attrName, RAPID_VALUE) end)
+            pcall(function()
+                tool:SetAttribute(attrName, RAPID_VALUE)
+            end)
         end
     end
 end
@@ -1979,7 +2096,9 @@ local function hookCharForRapid(char)
     end)
 end
 
-if LP.Character then hookCharForRapid(LP.Character) end
+if LP.Character then
+    hookCharForRapid(LP.Character)
+end
 LP.CharacterAdded:Connect(hookCharForRapid)
 
 task.spawn(function()
@@ -1994,23 +2113,36 @@ task.spawn(function()
 end)
 
 local TARGET_ARM_NAMES = {
-    ["RightArm"] = true, ["LeftArm"] = true, ["SleeveL"] = true, ["SleeveR"] = true,
+    ["RightArm"] = true,
+    ["LeftArm"] = true,
+    ["SleeveL"] = true,
+    ["SleeveR"] = true,
 }
 
 local function ForceHandsStyle(part)
     if not part or not part.Parent then return end
     local pbr = part:FindFirstChildOfClass("SurfaceAppearance")
-    if pbr then pbr:Destroy() end
+    if pbr then
+        pbr:Destroy()
+    end
     local sm = part:FindFirstChildOfClass("SpecialMesh")
-    if sm and sm.TextureId ~= "" then sm.TextureId = "" end
-    if part:IsA("MeshPart") and part.TextureID ~= "" then part.TextureID = "" end
+    if sm and sm.TextureId ~= "" then
+        sm.TextureId = ""
+    end
+    if part:IsA("MeshPart") and part.TextureID ~= "" then
+        part.TextureID = ""
+    end
     for _,c in ipairs(part:GetChildren()) do
-        if c:IsA("Texture") or c:IsA("Decal") or c:IsA("Clothing") then c:Destroy() end
+        if c:IsA("Texture") or c:IsA("Decal") or c:IsA("Clothing") then
+            c:Destroy()
+        end
     end
     part.Color = customHandsColor
     part.Transparency = customHandsTransp
     part.Material = Enum.Material.Neon
-    pcall(function() part.LocalTransparencyModifier = customHandsTransp end)
+    pcall(function()
+        part.LocalTransparencyModifier = customHandsTransp
+    end)
 end
 
 local function BindArm(part)
@@ -2019,13 +2151,17 @@ local function BindArm(part)
     ForceHandsStyle(part)
     local busy = false
     part.Changed:Connect(function(prop)
-        if busy or not part.Parent or not customHandsEnabled then return end
+        if busy or not part.Parent or not customHandsEnabled then
+            return
+        end
         if prop == "Color" or prop == "Transparency" or prop == "Material" or prop == "LocalTransparencyModifier" then
             busy = true
             part.Color = customHandsColor
             part.Transparency = customHandsTransp
             part.Material = Enum.Material.Neon
-            pcall(function() part.LocalTransparencyModifier = customHandsTransp end)
+            pcall(function()
+                part.LocalTransparencyModifier = customHandsTransp
+            end)
             busy = false
         end
     end)
@@ -2074,7 +2210,10 @@ LP.CharacterAdded:Connect(function()
 end)
 
 function ApplyViewModel()
-    if viewModelConn then viewModelConn:Disconnect(); viewModelConn = nil end
+    if viewModelConn then
+        viewModelConn:Disconnect()
+        viewModelConn = nil
+    end
     if not viewModelEnabled then return end
     viewModelConn = RS.RenderStepped:Connect(function()
         if not viewModelEnabled then return end
@@ -2094,14 +2233,24 @@ function UpdateViewModel()
 end
 
 function RemoveViewModel()
-    if viewModelConn then viewModelConn:Disconnect(); viewModelConn = nil end
+    if viewModelConn then
+        viewModelConn:Disconnect()
+        viewModelConn = nil
+    end
 end
 
 function ApplySkybox(name)
-    if activeSky then activeSky:Destroy(); activeSky = nil end
-    if name == "None" then return end
+    if activeSky then
+        activeSky:Destroy()
+        activeSky = nil
+    end
+    if name == "None" then
+        return
+    end
     for _,o in ipairs(Lighting:GetChildren()) do
-        if o:IsA("Sky") or o:IsA("Atmosphere") or o:IsA("ColorCorrectionEffect") then o:Destroy() end
+        if o:IsA("Sky") or o:IsA("Atmosphere") or o:IsA("ColorCorrectionEffect") then
+            o:Destroy()
+        end
     end
     local s = Instance.new("Sky")
     if name == "Galaxy" then
@@ -2122,8 +2271,12 @@ function ApplySkybox(name)
     else
         local id = SKYBOXES[name]
         if id and id ~= "MULTI" then
-            s.SkyboxBk = id; s.SkyboxDn = id; s.SkyboxFt = id
-            s.SkyboxLf = id; s.SkyboxRt = id; s.SkyboxUp = id
+            s.SkyboxBk = id
+            s.SkyboxDn = id
+            s.SkyboxFt = id
+            s.SkyboxLf = id
+            s.SkyboxRt = id
+            s.SkyboxUp = id
         end
     end
     s.Parent = Lighting
@@ -2143,25 +2296,44 @@ local function createESP(player)
     }
     o.Box.Filled = false
     o.Box.Thickness = 1.5
-    o.Name.Size = 14; o.Name.Center = true; o.Name.Outline = true
-    o.HPBg.Filled = true; o.HPBg.Color = Color3.fromRGB(40,40,40)
+    o.Name.Size = 14
+    o.Name.Center = true
+    o.Name.Outline = true
+    o.HPBg.Filled = true
+    o.HPBg.Color = Color3.fromRGB(40,40,40)
     o.HPBar.Filled = true
-    o.Dist.Size = 12; o.Dist.Center = true; o.Dist.Outline = true
-    o.Weapon.Size = 12; o.Weapon.Center = true; o.Weapon.Outline = true
-    for _,d in pairs(o) do d.Visible = false end
+    o.Dist.Size = 12
+    o.Dist.Center = true
+    o.Dist.Outline = true
+    o.Weapon.Size = 12
+    o.Weapon.Center = true
+    o.Weapon.Outline = true
+    for _,d in pairs(o) do
+        d.Visible = false
+    end
     espCache[player] = o
 end
 
 local function removeESP(player)
     if espCache[player] then
-        for _,d in pairs(espCache[player]) do pcall(function() d:Remove() end) end
+        for _,d in pairs(espCache[player]) do
+            pcall(function() d:Remove() end)
+        end
         espCache[player] = nil
     end
 end
 
-Players.PlayerAdded:Connect(function(p) if p ~= LP then createESP(p) end end)
+Players.PlayerAdded:Connect(function(p)
+    if p ~= LP then
+        createESP(p)
+    end
+end)
 Players.PlayerRemoving:Connect(removeESP)
-for _,p in ipairs(Players:GetPlayers()) do if p ~= LP then createESP(p) end end
+for _,p in ipairs(Players:GetPlayers()) do
+    if p ~= LP then
+        createESP(p)
+    end
+end
 
 local function getEquippedWeapon(char)
     local tool = char:FindFirstChildOfClass("Tool")
@@ -2189,13 +2361,17 @@ RS.RenderStepped:Connect(function()
                         o.Box.Position = Vector2.new(bx, by)
                         o.Box.Color = espBoxColor
                         o.Box.Visible = true
-                    else o.Box.Visible = false end
+                    else
+                        o.Box.Visible = false
+                    end
                     if espName then
                         o.Name.Text = player.Name
                         o.Name.Position = Vector2.new(headPos.X, by - 16)
                         o.Name.Color = espNameColor
                         o.Name.Visible = true
-                    else o.Name.Visible = false end
+                    else
+                        o.Name.Visible = false
+                    end
                     if espHealth then
                         local hp = math.clamp(hum.Health/hum.MaxHealth, 0, 1)
                         local barH = boxH * hp
@@ -2217,21 +2393,31 @@ RS.RenderStepped:Connect(function()
                         o.Dist.Position = Vector2.new(headPos.X, legPos.Y + 4)
                         o.Dist.Color = espDistColor
                         o.Dist.Visible = true
-                    else o.Dist.Visible = false end
+                    else
+                        o.Dist.Visible = false
+                    end
                     if espWeapon then
                         o.Weapon.Text = getEquippedWeapon(char)
                         o.Weapon.Position = Vector2.new(headPos.X, legPos.Y + 18)
                         o.Weapon.Color = espWeapColor
                         o.Weapon.Visible = true
-                    else o.Weapon.Visible = false end
+                    else
+                        o.Weapon.Visible = false
+                    end
                 else
-                    for _,d in pairs(o) do d.Visible = false end
+                    for _,d in pairs(o) do
+                        d.Visible = false
+                    end
                 end
             else
-                for _,d in pairs(o) do d.Visible = false end
+                for _,d in pairs(o) do
+                    d.Visible = false
+                end
             end
         else
-            for _,d in pairs(o) do d.Visible = false end
+            for _,d in pairs(o) do
+                d.Visible = false
+            end
         end
     end
 end)
@@ -2244,9 +2430,15 @@ RS.Heartbeat:Connect(function(dt)
         Lighting.FogStart = 1e5
     end
     if fullbrightEnabled then
-        if Lighting.Brightness ~= 3 then Lighting.Brightness = 3 end
-        if Lighting.ClockTime ~= 14 then Lighting.ClockTime = 14 end
-        if Lighting.GlobalShadows ~= false then Lighting.GlobalShadows = false end
+        if Lighting.Brightness ~= 3 then
+            Lighting.Brightness = 3
+        end
+        if Lighting.ClockTime ~= 14 then
+            Lighting.ClockTime = 14
+        end
+        if Lighting.GlobalShadows ~= false then
+            Lighting.GlobalShadows = false
+        end
     end
     local char = LP.Character
     if not char then return end
@@ -2255,7 +2447,9 @@ RS.Heartbeat:Connect(function(dt)
     if not root or not hum then return end
     if noClipEnabled then
         for _,p in ipairs(char:GetDescendants()) do
-            if p:IsA("BasePart") then p.CanCollide = false end
+            if p:IsA("BasePart") then
+                p.CanCollide = false
+            end
         end
     end
     if speedHackEnabled and hum.WalkSpeed ~= speedValue then
@@ -2263,12 +2457,24 @@ RS.Heartbeat:Connect(function(dt)
     end
     if flyEnabled then
         local dir = Vector3.zero
-        if UIS:IsKeyDown(Enum.KeyCode.W) then dir = dir + Camera.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.S) then dir = dir - Camera.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.A) then dir = dir - Camera.CFrame.RightVector end
-        if UIS:IsKeyDown(Enum.KeyCode.D) then dir = dir + Camera.CFrame.RightVector end
-        if UIS:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0,1,0) end
-        if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir - Vector3.new(0,1,0) end
+        if UIS:IsKeyDown(Enum.KeyCode.W) then
+            dir = dir + Camera.CFrame.LookVector
+        end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then
+            dir = dir - Camera.CFrame.LookVector
+        end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then
+            dir = dir - Camera.CFrame.RightVector
+        end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then
+            dir = dir + Camera.CFrame.RightVector
+        end
+        if UIS:IsKeyDown(Enum.KeyCode.Space) then
+            dir = dir + Vector3.new(0,1,0)
+        end
+        if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then
+            dir = dir - Vector3.new(0,1,0)
+        end
         root.Velocity = dir.Magnitude > 0 and dir.Unit * flySpeed or Vector3.zero
         hum.PlatformStand = true
     elseif hum.PlatformStand and not freezeEnabled and not airWalkBusy then
@@ -2361,24 +2567,28 @@ local tpBtnGui, tpBtn
 local awBtnGui, awBtn
 
 local function SetupDraggable(btn)
-    local dragging, dragInput, dragStart, startPos
+    local draggingBtn, dragInputBtn, dragStartBtn, startPosBtn
     btn.InputBegan:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            dragging = true; dragStart = i.Position; startPos = btn.Position
+            draggingBtn = true
+            dragStartBtn = i.Position
+            startPosBtn = btn.Position
             i.Changed:Connect(function()
-                if i.UserInputState == Enum.UserInputState.End then dragging = false end
+                if i.UserInputState == Enum.UserInputState.End then
+                    draggingBtn = false
+                end
             end)
         end
     end)
     btn.InputChanged:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
-            dragInput = i
+            dragInputBtn = i
         end
     end)
     UIS.InputChanged:Connect(function(i)
-        if i == dragInput and dragging then
-            local d = i.Position - dragStart
-            btn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+        if i == dragInputBtn and draggingBtn then
+            local d = i.Position - dragStartBtn
+            btn.Position = UDim2.new(startPosBtn.X.Scale, startPosBtn.X.Offset + d.X, startPosBtn.Y.Scale, startPosBtn.Y.Offset + d.Y)
         end
     end)
 end
@@ -2389,7 +2599,9 @@ function CreateFreezeButton()
     freezeBtnGui.Name = "AstraFreezeUI"
     freezeBtnGui.ResetOnSpawn = false
     pcall(function() freezeBtnGui.Parent = GUI_PARENT end)
-    if not freezeBtnGui.Parent then freezeBtnGui.Parent = LP:WaitForChild("PlayerGui") end
+    if not freezeBtnGui.Parent then
+        freezeBtnGui.Parent = LP:WaitForChild("PlayerGui")
+    end
     freezeBtn = Instance.new("TextButton")
     freezeBtn.Size = UDim2.new(0,110,0,45)
     freezeBtn.Position = UDim2.new(0.1,0,0.4,0)
@@ -2427,7 +2639,11 @@ function CreateFreezeButton()
 end
 
 function DestroyFreezeButton()
-    if freezeBtnGui then freezeBtnGui:Destroy(); freezeBtnGui = nil; freezeBtn = nil end
+    if freezeBtnGui then
+        freezeBtnGui:Destroy()
+        freezeBtnGui = nil
+        freezeBtn = nil
+    end
     freezeEnabled = false
     freezeTargetCF = nil
 end
@@ -2438,7 +2654,9 @@ function CreateTPButton()
     tpBtnGui.Name = "AstraTPButton"
     tpBtnGui.ResetOnSpawn = false
     pcall(function() tpBtnGui.Parent = GUI_PARENT end)
-    if not tpBtnGui.Parent then tpBtnGui.Parent = LP:WaitForChild("PlayerGui") end
+    if not tpBtnGui.Parent then
+        tpBtnGui.Parent = LP:WaitForChild("PlayerGui")
+    end
     tpBtn = Instance.new("TextButton")
     tpBtn.Size = UDim2.new(0,110,0,45)
     tpBtn.Position = UDim2.new(0.1,0,0.5,0)
@@ -2453,11 +2671,17 @@ function CreateTPButton()
     tpBtn.Parent = tpBtnGui
     Instance.new("UICorner",tpBtn).CornerRadius = UDim.new(0,5)
     SetupDraggable(tpBtn)
-    tpBtn.MouseButton1Click:Connect(function() DoTeleport() end)
+    tpBtn.MouseButton1Click:Connect(function()
+        DoTeleport()
+    end)
 end
 
 function DestroyTPButton()
-    if tpBtnGui then tpBtnGui:Destroy(); tpBtnGui = nil; tpBtn = nil end
+    if tpBtnGui then
+        tpBtnGui:Destroy()
+        tpBtnGui = nil
+        tpBtn = nil
+    end
 end
 
 function CreateAirWalkButton()
@@ -2466,7 +2690,9 @@ function CreateAirWalkButton()
     awBtnGui.Name = "AstraAirWalkButton"
     awBtnGui.ResetOnSpawn = false
     pcall(function() awBtnGui.Parent = GUI_PARENT end)
-    if not awBtnGui.Parent then awBtnGui.Parent = LP:WaitForChild("PlayerGui") end
+    if not awBtnGui.Parent then
+        awBtnGui.Parent = LP:WaitForChild("PlayerGui")
+    end
     awBtn = Instance.new("TextButton")
     awBtn.Size = UDim2.new(0,130,0,45)
     awBtn.Position = UDim2.new(0.1,0,0.5,0)
@@ -2481,17 +2707,31 @@ function CreateAirWalkButton()
     awBtn.Parent = awBtnGui
     Instance.new("UICorner",awBtn).CornerRadius = UDim.new(0,6)
     SetupDraggable(awBtn)
-    awBtn.MouseButton1Click:Connect(function() DoAirWalk() end)
+    awBtn.MouseButton1Click:Connect(function()
+        DoAirWalk()
+    end)
 end
 
 function DestroyAirWalkButton()
-    if awBtnGui then awBtnGui:Destroy(); awBtnGui = nil; awBtn = nil end
+    if awBtnGui then
+        awBtnGui:Destroy()
+        awBtnGui = nil
+        awBtn = nil
+    end
 end
 
 UIS.InputBegan:Connect(function(inp, gpe)
     if gpe then return end
-    if inp.KeyCode == airWalkKey then DoAirWalk() end
-    if inp.KeyCode == tpKey then DoTeleport() end
+    if inp.KeyCode == airWalkKey then
+        DoAirWalk()
+    end
+    if inp.KeyCode == tpKey then
+        DoTeleport()
+    end
 end)
 
-task.defer(function() CenterMain() end)
+task.defer(function()
+    CenterMain()
+end)
+
+print("[Astra v19] LOADED")
