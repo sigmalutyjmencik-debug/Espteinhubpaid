@@ -1,4 +1,4 @@
--- Project Astra v22 | t.me/epsteinhub
+-- Project Astra v22.1 | t.me/epsteinhub
 _G.A = {}
 local A = _G.A
 
@@ -152,8 +152,6 @@ do
         Freeze = Enum.KeyCode.X,
     }
     A.showKeybindOverlay = false
-
-    print("[Astra] Settings initialized")
 end
 
 do
@@ -387,8 +385,6 @@ do
         A.MakeText(f,title,UDim2.fromOffset(8,0),UDim2.new(1,-16,1,0),13,ACCENT)
         return f
     end
-
-    print("[Astra] Helpers initialized")
 end
 
 do
@@ -443,7 +439,7 @@ do
         ColorSequenceKeypoint.new(0.5, Color3.fromRGB(120,30,120)),
         ColorSequenceKeypoint.new(1, Color3.fromRGB(40,15,60)),
     })
-    A.MakeText(TitleBar, "Project Astra v22  |  t.me/epsteinhub", UDim2.fromOffset(12,0), UDim2.new(1,-24,1,0), 14, WHITE)
+    A.MakeText(TitleBar, "Project Astra v22.1  |  t.me/epsteinhub", UDim2.fromOffset(12,0), UDim2.new(1,-24,1,0), 14, WHITE)
 
     local SepLine = Instance.new("Frame")
     SepLine.Position = UDim2.new(0,0,0,41)
@@ -551,7 +547,6 @@ do
     end
     SelectTab(1)
 
-    -- SIDE PANEL
     local Side = Instance.new("Frame")
     Side.Name = "AstraSide"
     Side.Size = UDim2.fromOffset(161,87)
@@ -655,13 +650,8 @@ do
     A.ScrollsL = ScrollsL
     A.ScrollsR = ScrollsR
     A.SelectTab = SelectTab
-
-    print("[Astra] Main GUI created")
 end
 
--- ============================================================
--- TABS
--- ============================================================
 do
     local A = _G.A
     local WHITE = A.WHITE
@@ -679,7 +669,6 @@ do
     local Dropdown = A.Dropdown
     local KeybindRow = A.KeybindRow
 
-    -- ============ COLOR PICKER ============
     local PickerGui = Instance.new("ScreenGui")
     PickerGui.Name = "AstraColorPicker"
     PickerGui.ResetOnSpawn = false
@@ -895,7 +884,6 @@ do
         return container
     end
 
-    -- ============ COMBAT ============
     local CL = A.ScrollsL[1]
     local CR = A.ScrollsR[1]
 
@@ -944,7 +932,6 @@ do
         end)
     Slider(CR, "Volume (x0.01)", 0, 200, 30, function(v) A.HIT_SOUND_VOL = v/100 end)
 
-    -- ============ VISUALS ============
     local VL = A.ScrollsL[2]
     local VR = A.ScrollsR[2]
 
@@ -1080,7 +1067,6 @@ do
         end
     end)
 
-    -- ============ MISC ============
     local ML = A.ScrollsL[3]
     local MR = A.ScrollsR[3]
 
@@ -1141,12 +1127,11 @@ do
         end
     end)
 
-    -- ============ SETTINGS ============
     local SL = A.ScrollsL[4]
     local SR = A.ScrollsR[4]
 
     Section(SL, "INFO")
-    MakeText(SL, "Project Astra v22", UDim2.fromOffset(10,0), UDim2.new(1,-20,0,22), 13, ACCENT)
+    MakeText(SL, "Project Astra v22.1", UDim2.fromOffset(10,0), UDim2.new(1,-20,0,22), 13, ACCENT)
     MakeText(SL, "t.me/epsteinhub", UDim2.fromOffset(10,24), UDim2.new(1,-20,0,22), 13, WHITE)
 
     Section(SL, "UI SETTINGS")
@@ -1194,11 +1179,11 @@ do
             end
         end
     end
+    A.RenderWhitelist = RenderWhitelist
     A.Players.PlayerAdded:Connect(RenderWhitelist)
     A.Players.PlayerRemoving:Connect(RenderWhitelist)
     RenderWhitelist()
 
-    -- ============ CONFIGS (LOAD/SAVE/DEL/AUTO) ============
     local HAS_FS = (type(writefile) == "function" and type(readfile) == "function" and type(isfile) == "function")
     local HAS_LIST = (type(listfiles) == "function")
     local HAS_FOLDER = (type(makefolder) == "function" and type(isfolder) == "function")
@@ -1354,7 +1339,7 @@ do
             if not ok or not files then return end
             for _, f in ipairs(files) do
                 local n = f:match("([^/\\]+)%.json$")
-                if n then
+                if n and n ~= "autoload" then
                     local row = Instance.new("Frame")
                     row.Size = UDim2.new(1,-6,0,26)
                     row.BackgroundColor3 = Color3.fromRGB(20,20,20)
@@ -1438,7 +1423,6 @@ do
 
         RenderCfgList()
 
-        -- AUTOLOAD при следующем инжекте
         pcall(function()
             if isfile(GetPath("autoload")) then
                 local data = A.HttpService:JSONDecode(readfile(GetPath("autoload")))
@@ -1446,13 +1430,8 @@ do
             end
         end)
     end
-
-    print("[Astra] All tabs done")
 end
 
--- ============================================================
--- LOGIC
--- ============================================================
 do
     local A = _G.A
     local UIS = A.UIS
@@ -1462,10 +1441,7 @@ do
     local Players = A.Players
     local Lighting = A.Lighting
     local Debris = A.Debris
-    local SoundService = A.SoundService
     local GUI_PARENT = A.GUI_PARENT
-    local WHITE = A.WHITE
-    local ACCENT = A.ACCENT
 
     local FOVGui = Instance.new("ScreenGui")
     FOVGui.Name = "AstraFOV"
@@ -2154,8 +2130,6 @@ do
         if inp.KeyCode == A.airWalkKey then A.DoAirWalk() end
         if inp.KeyCode == A.tpKey then A.DoTeleport() end
     end)
-
-    print("[Astra] Logic initialized")
 end
 
 do
@@ -2169,6 +2143,7 @@ do
         pcall(function()
             local blaster = ReplicatedStorage:FindFirstChild("Blaster")
             if not blaster then return end
+
             local util = blaster:FindFirstChild("Utility")
             local castRaysFunc = nil
             if util then
@@ -2178,32 +2153,61 @@ do
                     if ok and type(f) == "function" then castRaysFunc = f end
                 end
             end
+
             if castRaysFunc and type(hookfunction) == "function" then
                 pcall(function()
                     local original
                     original = hookfunction(castRaysFunc, function(plr, origin, dirs, ...)
-                        if plr ~= LP then return original(plr, origin, dirs, ...) end
-                        local target = nil
-                        if A.SILENT_AIM and A.getSilentTarget then target = A.getSilentTarget() end
-                        if target and type(dirs) == "table" then
-                            for k in pairs(dirs) do dirs[k] = Vector3.new(0,0,-1) end
+                        if plr ~= LP then
+                            return original(plr, origin, dirs, ...)
                         end
+
+                        local target = nil
+                        if A.SILENT_AIM and A.getSilentTarget then
+                            target = A.getSilentTarget()
+                        end
+
+                        if target and type(dirs) == "table" then
+                            for k in pairs(dirs) do
+                                dirs[k] = Vector3.new(0,0,-1)
+                            end
+                        end
+
                         local result = original(plr, origin, dirs, ...)
-                        if not target then return result end
+
+                        if not target then
+                            return result
+                        end
+
                         if A.TRACER and A.CreateTracer then
                             pcall(function() A.CreateTracer(origin, target.Position) end)
                         end
+
                         if A.HIT_CHANCE/100 > math.random() then
-                            if type(result) == "table" and result.position then
-                                result.position = target.Position
-                                result.instance = target
-                                if target.Parent then
-                                    result.taggedHumanoid = target.Parent:FindFirstChildOfClass("Humanoid")
+                            if type(result) == "table" then
+                                if result.position then
+                                    result.position = target.Position
+                                    result.instance = target
+                                    if target.Parent then
+                                        result.taggedHumanoid = target.Parent:FindFirstChildOfClass("Humanoid")
+                                    end
+                                elseif result[1] and type(result[1]) == "table" then
+                                    for i = 1, #result do
+                                        if type(result[i]) == "table" and result[i].position then
+                                            result[i].position = target.Position
+                                            result[i].instance = target
+                                            if target.Parent then
+                                                result[i].taggedHumanoid = target.Parent:FindFirstChildOfClass("Humanoid")
+                                            end
+                                        end
+                                    end
                                 end
                             end
+
                             if A.CreateHitmarker then
                                 pcall(function() A.CreateHitmarker(target.Position) end)
                             end
+
                             if A.HIT_SOUND then
                                 task.spawn(function()
                                     local s = Instance.new("Sound")
@@ -2215,14 +2219,18 @@ do
                                     s:Destroy()
                                 end)
                             end
+
                             return result
                         end
+
                         return result
                     end)
                 end)
             end
+
             local scripts = blaster:FindFirstChild("Scripts")
             if not scripts then return end
+
             pcall(function()
                 local getRD = util and util:FindFirstChild("getRayDirections")
                 if getRD then
@@ -2238,10 +2246,12 @@ do
                     end
                 end
             end)
+
             local okBc, BC = pcall(function()
                 return require(scripts:FindFirstChild("BlasterController"))
             end)
             if not okBc or not BC then return end
+
             pcall(function()
                 local recoiler = scripts:FindFirstChild("CameraRecoiler")
                 if recoiler then
@@ -2253,6 +2263,7 @@ do
                     end
                 end
             end)
+
             if BC.reload then
                 local oldReload = BC.reload
                 BC.reload = function(self)
@@ -2275,6 +2286,7 @@ do
                     end)
                 end
             end
+
             if BC.canShoot then
                 local oldCanShoot = BC.canShoot
                 BC.canShoot = function(self)
@@ -2294,6 +2306,7 @@ do
                     return oldCanShoot(self)
                 end
             end
+
             if BC.startShooting then
                 local oldSS = BC.startShooting
                 BC.startShooting = function(self)
@@ -2305,6 +2318,7 @@ do
                     return oldSS(self)
                 end
             end
+
             if BC.equip then
                 local oldEquip = BC.equip
                 BC.equip = function(self)
@@ -2371,8 +2385,6 @@ do
             end
         end
     end)
-
-    print("[Astra] Weapon hooks initialized")
 end
 
 task.defer(function()
@@ -2381,4 +2393,4 @@ task.defer(function()
     end
 end)
 
-print("[Astra v22] LOADED OK")
+print("[Astra v22.1] LOADED OK")
