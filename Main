@@ -1,4 +1,4 @@
--- Project Astra v21 | t.me/epsteinhub
+-- Project Astra v22 | t.me/epsteinhub
 _G.A = {}
 local A = _G.A
 
@@ -29,7 +29,7 @@ do
     A.Camera = Camera
     A.GUI_PARENT = GUI_PARENT
 
-    for _, n in ipairs({"ProjectAstra","AstraFOV","AstraFreezeUI","AstraTPButton","AstraAirWalkButton","AstraColorPicker","GradientKeybinds"}) do
+    for _, n in ipairs({"ProjectAstra","AstraFOV","AstraFreezeUI","AstraTPButton","AstraAirWalkButton","AstraColorPicker","GradientKeybinds","AstraSide"}) do
         local old = GUI_PARENT:FindFirstChild(n)
         if old then old:Destroy() end
     end
@@ -443,7 +443,7 @@ do
         ColorSequenceKeypoint.new(0.5, Color3.fromRGB(120,30,120)),
         ColorSequenceKeypoint.new(1, Color3.fromRGB(40,15,60)),
     })
-    A.MakeText(TitleBar, "Project Astra v21  |  t.me/epsteinhub", UDim2.fromOffset(12,0), UDim2.new(1,-24,1,0), 14, WHITE)
+    A.MakeText(TitleBar, "Project Astra v22  |  t.me/epsteinhub", UDim2.fromOffset(12,0), UDim2.new(1,-24,1,0), 14, WHITE)
 
     local SepLine = Instance.new("Frame")
     SepLine.Position = UDim2.new(0,0,0,41)
@@ -551,6 +551,105 @@ do
     end
     SelectTab(1)
 
+    -- SIDE PANEL
+    local Side = Instance.new("Frame")
+    Side.Name = "AstraSide"
+    Side.Size = UDim2.fromOffset(161,87)
+    Side.Position = UDim2.fromOffset(68,185)
+    Side.BackgroundColor3 = BG
+    Side.BorderSizePixel = 0
+    Side.Parent = ScreenGui
+    local SideScale = Instance.new("UIScale")
+    SideScale.Scale = 0.55
+    SideScale.Parent = Side
+    A.Stroke(Side,1)
+
+    local ToggleButton = Instance.new("TextButton")
+    ToggleButton.Size = UDim2.new(1,0,0,43)
+    ToggleButton.BackgroundTransparency = 1
+    ToggleButton.BorderSizePixel = 0
+    ToggleButton.Text = "Toggle UI"
+    ToggleButton.TextColor3 = WHITE
+    ToggleButton.Font = Enum.Font.Code
+    ToggleButton.TextSize = 14
+    ToggleButton.AutoButtonColor = false
+    ToggleButton.Parent = Side
+
+    local SideSep = Instance.new("Frame")
+    SideSep.Position = UDim2.fromOffset(0,43)
+    SideSep.Size = UDim2.new(1,0,0,1)
+    SideSep.BackgroundColor3 = ACCENT
+    SideSep.BorderSizePixel = 0
+    SideSep.Parent = Side
+
+    local LockButton = Instance.new("TextButton")
+    LockButton.Position = UDim2.fromOffset(0,44)
+    LockButton.Size = UDim2.new(1,0,0,43)
+    LockButton.BackgroundTransparency = 1
+    LockButton.BorderSizePixel = 0
+    LockButton.Text = "Lock UI"
+    LockButton.TextColor3 = WHITE
+    LockButton.Font = Enum.Font.Code
+    LockButton.TextSize = 14
+    LockButton.AutoButtonColor = false
+    LockButton.Parent = Side
+
+    local MainVisible = true
+    local Locked = false
+    A.UI_Locked = function() return Locked end
+
+    ToggleButton.MouseButton1Click:Connect(function()
+        MainVisible = not MainVisible
+        Main.Visible = MainVisible
+    end)
+    LockButton.MouseButton1Click:Connect(function()
+        Locked = not Locked
+        LockButton.Text = Locked and "Unlock UI" or "Lock UI"
+    end)
+
+    local draggingUI = false
+    local dragUIStart, startUIPos
+    TitleBar.InputBegan:Connect(function(i)
+        if Locked then return end
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            draggingUI = true
+            dragUIStart = i.Position
+            startUIPos = Main.Position
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if draggingUI and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+            local d = i.Position - dragUIStart
+            Main.Position = UDim2.fromOffset(startUIPos.X.Offset + d.X, startUIPos.Y.Offset + d.Y)
+        end
+    end)
+    UIS.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            draggingUI = false
+        end
+    end)
+
+    local sdrag, sdragStart, sStartPos = false, nil, nil
+    Side.InputBegan:Connect(function(i)
+        if Locked then return end
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            sdrag = true
+            sdragStart = i.Position
+            sStartPos = Side.Position
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if sdrag and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+            local d = i.Position - sdragStart
+            Side.Position = UDim2.fromOffset(sStartPos.X.Offset + d.X, sStartPos.Y.Offset + d.Y)
+        end
+    end)
+    UIS.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            sdrag = false
+        end
+    end)
+
     A.ScreenGui = ScreenGui
     A.Main = Main
     A.ScrollsL = ScrollsL
@@ -560,20 +659,18 @@ do
     print("[Astra] Main GUI created")
 end
 
+-- ============================================================
+-- TABS
+-- ============================================================
 do
     local A = _G.A
-    local GUI_PARENT = A.GUI_PARENT
     local WHITE = A.WHITE
-    local GRAY = A.GRAY
     local ACCENT = A.ACCENT
-    local BG = A.BG
     local PANEL = A.PANEL
-    local DROPBG = A.DROPBG
-    local BARBG = A.BARBG
-    local CHECKBG = A.CHECKBG
     local UIS = A.UIS
     local LP = A.LP
     local Camera = A.Camera
+    local GUI_PARENT = A.GUI_PARENT
     local Stroke = A.Stroke
     local MakeText = A.MakeText
     local Section = A.Section
@@ -1049,7 +1146,7 @@ do
     local SR = A.ScrollsR[4]
 
     Section(SL, "INFO")
-    MakeText(SL, "Project Astra v21", UDim2.fromOffset(10,0), UDim2.new(1,-20,0,22), 13, ACCENT)
+    MakeText(SL, "Project Astra v22", UDim2.fromOffset(10,0), UDim2.new(1,-20,0,22), 13, ACCENT)
     MakeText(SL, "t.me/epsteinhub", UDim2.fromOffset(10,24), UDim2.new(1,-20,0,22), 13, WHITE)
 
     Section(SL, "UI SETTINGS")
@@ -1101,7 +1198,7 @@ do
     A.Players.PlayerRemoving:Connect(RenderWhitelist)
     RenderWhitelist()
 
-    -- ============ CONFIGS ============
+    -- ============ CONFIGS (LOAD/SAVE/DEL/AUTO) ============
     local HAS_FS = (type(writefile) == "function" and type(readfile) == "function" and type(isfile) == "function")
     local HAS_LIST = (type(listfiles) == "function")
     local HAS_FOLDER = (type(makefolder) == "function" and type(isfolder) == "function")
@@ -1114,7 +1211,7 @@ do
         local nameBox = Instance.new("TextBox")
         nameBox.Size = UDim2.new(1,-20,0,28)
         nameBox.Position = UDim2.fromOffset(10,0)
-        nameBox.BackgroundColor3 = DROPBG
+        nameBox.BackgroundColor3 = A.DROPBG
         nameBox.BorderSizePixel = 0
         nameBox.Text = "my_config"
         nameBox.TextColor3 = WHITE
@@ -1125,21 +1222,49 @@ do
         Stroke(nameBox,1)
 
         local saveBtn = Instance.new("TextButton")
-        saveBtn.Size = UDim2.new(1,-20,0,28)
+        saveBtn.Size = UDim2.new(1,-20,0,26)
         saveBtn.Position = UDim2.fromOffset(10,32)
         saveBtn.BackgroundColor3 = Color3.fromRGB(60,120,60)
         saveBtn.BorderSizePixel = 0
-        saveBtn.Text = "Save Config"
+        saveBtn.Text = "SAVE"
         saveBtn.TextColor3 = WHITE
         saveBtn.Font = Enum.Font.Code
-        saveBtn.TextSize = 13
+        saveBtn.TextSize = 12
         saveBtn.AutoButtonColor = false
         saveBtn.Parent = SR
         Stroke(saveBtn,1)
 
+        local AutoLoadVal = false
+        local autoRow = Instance.new("Frame")
+        autoRow.Size = UDim2.new(1,-20,0,24)
+        autoRow.Position = UDim2.fromOffset(10,62)
+        autoRow.BackgroundTransparency = 1
+        autoRow.Parent = SR
+        MakeText(autoRow, "Auto-Load on Inject", UDim2.fromOffset(26,0), UDim2.new(1,-26,1,0), 13, WHITE)
+        local autoBox = Instance.new("TextButton")
+        autoBox.Size = UDim2.fromOffset(18,18)
+        autoBox.Position = UDim2.fromOffset(0,3)
+        autoBox.BackgroundColor3 = A.CHECKBG
+        autoBox.BorderSizePixel = 0
+        autoBox.Text = ""
+        autoBox.AutoButtonColor = false
+        autoBox.Parent = autoRow
+        Stroke(autoBox,1)
+        local autoFill = Instance.new("Frame")
+        autoFill.Position = UDim2.fromOffset(3,3)
+        autoFill.Size = UDim2.fromOffset(12,12)
+        autoFill.BackgroundColor3 = ACCENT
+        autoFill.BorderSizePixel = 0
+        autoFill.Visible = false
+        autoFill.Parent = autoBox
+        autoBox.MouseButton1Click:Connect(function()
+            AutoLoadVal = not AutoLoadVal
+            autoFill.Visible = AutoLoadVal
+        end)
+
         local cfgList = Instance.new("ScrollingFrame")
-        cfgList.Size = UDim2.new(1,-20,0,180)
-        cfgList.Position = UDim2.fromOffset(10,64)
+        cfgList.Size = UDim2.new(1,-20,0,200)
+        cfgList.Position = UDim2.fromOffset(10,92)
         cfgList.BackgroundColor3 = PANEL
         cfgList.BorderSizePixel = 0
         cfgList.ScrollBarThickness = 3
@@ -1150,7 +1275,9 @@ do
         Stroke(cfgList,1)
         Instance.new("UIListLayout",cfgList).Padding = UDim.new(0,3)
 
-        local function GetPath(n) return A.CONFIG_FOLDER .. "/" .. n .. ".json" end
+        local function GetPath(n)
+            return A.CONFIG_FOLDER .. "/" .. n .. ".json"
+        end
 
         local function EnsureFolder()
             if HAS_FOLDER then
@@ -1195,22 +1322,27 @@ do
                 gunChamsColor = {A.gunChamsColor.R, A.gunChamsColor.G, A.gunChamsColor.B},
                 gammaColor = {A.gammaColor.R, A.gammaColor.G, A.gammaColor.B},
                 fogColor = {A.fogColor.R, A.fogColor.G, A.fogColor.B},
+                AutoLoad = AutoLoadVal,
             }
         end
-        A.CollectConfig = CollectConfig
+
+        local colorKeys = {
+            silentAimFovColor=true, silentAimSnaplineColor=true, hitMarkerColor=true,
+            espBoxColor=true, espNameColor=true, espDistColor=true, espWeapColor=true,
+            customHandsColor=true, gunChamsColor=true, gammaColor=true, fogColor=true,
+        }
 
         local function ApplyConfig(cfg)
             if not cfg then return end
             for k, v in pairs(cfg) do
-                if type(v) == "table" and #v == 3 and type(v[1]) == "number" then
+                if colorKeys[k] and type(v) == "table" and #v == 3 then
                     A[k] = Color3.new(v[1], v[2], v[3])
-                else
+                elseif k ~= "AutoLoad" then
                     A[k] = v
                 end
             end
             RenderWhitelist()
         end
-        A.ApplyConfig = ApplyConfig
 
         local function RenderCfgList()
             for _, c in ipairs(cfgList:GetChildren()) do
@@ -1250,6 +1382,7 @@ do
                     lb.AutoButtonColor = false
                     lb.Parent = row
                     Instance.new("UICorner",lb).CornerRadius = UDim.new(0,3)
+                    Stroke(lb,1)
                     local db = Instance.new("TextButton")
                     db.Size = UDim2.fromOffset(34,20)
                     db.Position = UDim2.new(1,-34,0.5,-10)
@@ -1262,17 +1395,26 @@ do
                     db.AutoButtonColor = false
                     db.Parent = row
                     Instance.new("UICorner",db).CornerRadius = UDim.new(0,3)
+                    Stroke(db,1)
                     lb.MouseButton1Click:Connect(function()
                         pcall(function()
-                            if isfile(GetPath(n)) then
-                                ApplyConfig(A.HttpService:JSONDecode(readfile(GetPath(n))))
+                            local path = GetPath(n)
+                            if isfile(path) then
+                                local data = A.HttpService:JSONDecode(readfile(path))
+                                ApplyConfig(data)
+                                nameBox.Text = n
+                                if data.AutoLoad ~= nil then
+                                    AutoLoadVal = data.AutoLoad
+                                    autoFill.Visible = AutoLoadVal
+                                end
                             end
                         end)
                     end)
                     db.MouseButton1Click:Connect(function()
                         pcall(function()
-                            if type(delfile) == "function" and isfile(GetPath(n)) then
-                                delfile(GetPath(n))
+                            local path = GetPath(n)
+                            if type(delfile) == "function" and isfile(path) then
+                                delfile(path)
                                 RenderCfgList()
                             end
                         end)
@@ -1288,14 +1430,29 @@ do
                 EnsureFolder()
                 writefile(GetPath(n), A.HttpService:JSONEncode(CollectConfig()))
                 RenderCfgList()
+                if AutoLoadVal then
+                    writefile(GetPath("autoload"), A.HttpService:JSONEncode(CollectConfig()))
+                end
             end)
         end)
+
         RenderCfgList()
+
+        -- AUTOLOAD при следующем инжекте
+        pcall(function()
+            if isfile(GetPath("autoload")) then
+                local data = A.HttpService:JSONDecode(readfile(GetPath("autoload")))
+                ApplyConfig(data)
+            end
+        end)
     end
 
     print("[Astra] All tabs done")
 end
 
+-- ============================================================
+-- LOGIC
+-- ============================================================
 do
     local A = _G.A
     local UIS = A.UIS
@@ -1310,7 +1467,6 @@ do
     local WHITE = A.WHITE
     local ACCENT = A.ACCENT
 
-    -- FOV circle
     local FOVGui = Instance.new("ScreenGui")
     FOVGui.Name = "AstraFOV"
     FOVGui.ResetOnSpawn = false
@@ -1433,7 +1589,6 @@ do
         Debris:AddItem(holder, A.TRACER_LIFE)
     end
 
-    -- ESP
     local function createESP(player)
         if A.espCache[player] then return end
         if not Drawing then return end
@@ -1474,7 +1629,6 @@ do
     Players.PlayerRemoving:Connect(removeESP)
     for _,p in ipairs(Players:GetPlayers()) do if p ~= LP then createESP(p) end end
 
-    -- Skybox
     function A.ApplySkybox(name)
         if A.activeSky then A.activeSky:Destroy() A.activeSky = nil end
         if name == "None" then return end
@@ -1504,7 +1658,6 @@ do
         A.activeSky = s
     end
 
-    -- Custom Hands
     local TARGET_ARM_NAMES = {["RightArm"]=true,["LeftArm"]=true,["SleeveL"]=true,["SleeveR"]=true}
 
     local function BindArm(part)
@@ -1703,7 +1856,6 @@ do
         if A.awBtnGui then A.awBtnGui:Destroy() A.awBtnGui = nil end
     end
 
-    -- KEYBIND OVERLAY
     local KbGui = Instance.new("ScreenGui")
     KbGui.Name = "GradientKeybinds"
     KbGui.ResetOnSpawn = false
@@ -1787,7 +1939,6 @@ do
         if v then A.UpdateKeybindOverlay() end
     end
 
-    -- MAIN LOOPS
     RS.RenderStepped:Connect(function()
         local vp = Camera.ViewportSize
         local cx = vp.X/2
@@ -2018,7 +2169,6 @@ do
         pcall(function()
             local blaster = ReplicatedStorage:FindFirstChild("Blaster")
             if not blaster then return end
-
             local util = blaster:FindFirstChild("Utility")
             local castRaysFunc = nil
             if util then
@@ -2028,7 +2178,6 @@ do
                     if ok and type(f) == "function" then castRaysFunc = f end
                 end
             end
-
             if castRaysFunc and type(hookfunction) == "function" then
                 pcall(function()
                     local original
@@ -2045,13 +2194,11 @@ do
                             pcall(function() A.CreateTracer(origin, target.Position) end)
                         end
                         if A.HIT_CHANCE/100 > math.random() then
-                            if type(result) == "table" then
-                                if result.position then
-                                    result.position = target.Position
-                                    result.instance = target
-                                    if target.Parent then
-                                        result.taggedHumanoid = target.Parent:FindFirstChildOfClass("Humanoid")
-                                    end
+                            if type(result) == "table" and result.position then
+                                result.position = target.Position
+                                result.instance = target
+                                if target.Parent then
+                                    result.taggedHumanoid = target.Parent:FindFirstChildOfClass("Humanoid")
                                 end
                             end
                             if A.CreateHitmarker then
@@ -2074,10 +2221,8 @@ do
                     end)
                 end)
             end
-
             local scripts = blaster:FindFirstChild("Scripts")
             if not scripts then return end
-
             pcall(function()
                 local getRD = util and util:FindFirstChild("getRayDirections")
                 if getRD then
@@ -2093,12 +2238,10 @@ do
                     end
                 end
             end)
-
             local okBc, BC = pcall(function()
                 return require(scripts:FindFirstChild("BlasterController"))
             end)
             if not okBc or not BC then return end
-
             pcall(function()
                 local recoiler = scripts:FindFirstChild("CameraRecoiler")
                 if recoiler then
@@ -2110,7 +2253,6 @@ do
                     end
                 end
             end)
-
             if BC.reload then
                 local oldReload = BC.reload
                 BC.reload = function(self)
@@ -2133,7 +2275,6 @@ do
                     end)
                 end
             end
-
             if BC.canShoot then
                 local oldCanShoot = BC.canShoot
                 BC.canShoot = function(self)
@@ -2153,7 +2294,6 @@ do
                     return oldCanShoot(self)
                 end
             end
-
             if BC.startShooting then
                 local oldSS = BC.startShooting
                 BC.startShooting = function(self)
@@ -2165,7 +2305,6 @@ do
                     return oldSS(self)
                 end
             end
-
             if BC.equip then
                 local oldEquip = BC.equip
                 BC.equip = function(self)
@@ -2242,4 +2381,4 @@ task.defer(function()
     end
 end)
 
-print("[Astra v21] LOADED OK")
+print("[Astra v22] LOADED OK")
