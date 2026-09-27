@@ -1,4 +1,4 @@
--- Project Astra v22.1 | t.me/epsteinhub
+-- Project Astra v23 | t.me/epsteinhub
 _G.A = {}
 local A = _G.A
 
@@ -11,6 +11,7 @@ do
     local Debris = game:GetService("Debris")
     local SoundService = game:GetService("SoundService")
     local HttpService = game:GetService("HttpService")
+    local StarterGui = game:GetService("StarterGui")
     local LP = Players.LocalPlayer
     local Camera = workspace.CurrentCamera
     local GUI_PARENT
@@ -25,11 +26,12 @@ do
     A.SoundService = SoundService
     A.ReplicatedStorage = ReplicatedStorage
     A.HttpService = HttpService
+    A.StarterGui = StarterGui
     A.LP = LP
     A.Camera = Camera
     A.GUI_PARENT = GUI_PARENT
 
-    for _, n in ipairs({"ProjectAstra","AstraFOV","AstraFreezeUI","AstraTPButton","AstraAirWalkButton","AstraColorPicker","GradientKeybinds","AstraSide"}) do
+    for _, n in ipairs({"ProjectAstra","AstraFOV","AstraFreezeUI","AstraTPButton","AstraAirWalkButton","AstraColorPicker","GradientKeybinds","AstraSide","AstraSahurButton"}) do
         local old = GUI_PARENT:FindFirstChild(n)
         if old then old:Destroy() end
     end
@@ -53,6 +55,7 @@ do
     A.TRACER = false
     A.TRACER_TYPE = "Red Laser"
     A.TRACER_LIFE = 3
+    A.RAINBOW_TRACER = false
     A.RAPID_FIRE = false
     A.RAPID_VALUE = 10000000
     A.HIT_SOUND = false
@@ -152,6 +155,22 @@ do
         Freeze = Enum.KeyCode.X,
     }
     A.showKeybindOverlay = false
+
+    A.rainbowUIEnabled = false
+    A.rainbowUISpeed = 1
+
+    A.thirdPersonEnabled = false
+    A.thirdPersonDistance = 15
+
+    A.sahurEnabled = false
+    A.sahurModel = "TungSahur"
+    A.sahurModel1 = 138151705692565
+    A.sahurModel2 = 138151705692565
+    A.sahurConn = nil
+    A.sahurPart = nil
+    A.sahurShiftLockConn = nil
+
+    A.RefreshCallbacks = {}
 end
 
 do
@@ -189,7 +208,7 @@ do
         return l
     end
 
-    A.Checkbox = function(parent, label, default, callback)
+    A.Checkbox = function(parent, label, default, callback, key)
         local container = Instance.new("Frame")
         container.Size = UDim2.new(1,0,0,24)
         container.BackgroundTransparency = 1
@@ -217,10 +236,16 @@ do
             fill.Visible = state
             if callback then pcall(callback, state) end
         end)
+        if key then
+            A.RefreshCallbacks[key] = function(v)
+                state = v
+                fill.Visible = v
+            end
+        end
         return container
     end
 
-    A.Slider = function(parent, label, minV, maxV, default, callback, suffix)
+    A.Slider = function(parent, label, minV, maxV, default, callback, suffix, key)
         suffix = suffix or ""
         local container = Instance.new("Frame")
         container.Size = UDim2.new(1,0,0,44)
@@ -275,10 +300,18 @@ do
                 dragging = false
             end
         end)
+        if key then
+            A.RefreshCallbacks[key] = function(v)
+                local r = (v - minV)/(maxV - minV)
+                r = math.clamp(r, 0, 1)
+                fill.Size = UDim2.new(r, 0, 1, 0)
+                valLabel.Text = tostring(v)..suffix
+            end
+        end
         return container
     end
 
-    A.Dropdown = function(parent, label, options, default, callback)
+    A.Dropdown = function(parent, label, options, default, callback, key)
         local container = Instance.new("Frame")
         container.Size = UDim2.new(1,0,0,52)
         container.BackgroundTransparency = 1
@@ -338,6 +371,11 @@ do
         click.MouseButton1Click:Connect(function()
             menu.Visible = not menu.Visible
         end)
+        if key then
+            A.RefreshCallbacks[key] = function(v)
+                selText.Text = v
+            end
+        end
         return container
     end
 
@@ -439,7 +477,7 @@ do
         ColorSequenceKeypoint.new(0.5, Color3.fromRGB(120,30,120)),
         ColorSequenceKeypoint.new(1, Color3.fromRGB(40,15,60)),
     })
-    A.MakeText(TitleBar, "Project Astra v22.1  |  t.me/epsteinhub", UDim2.fromOffset(12,0), UDim2.new(1,-24,1,0), 14, WHITE)
+    A.MakeText(TitleBar, "Project Astra v23  |  t.me/epsteinhub", UDim2.fromOffset(12,0), UDim2.new(1,-24,1,0), 14, WHITE)
 
     local SepLine = Instance.new("Frame")
     SepLine.Position = UDim2.new(0,0,0,41)
@@ -883,68 +921,70 @@ do
         end)
         return container
     end
+    A.ColorRow = ColorRow
 
     local CL = A.ScrollsL[1]
     local CR = A.ScrollsR[1]
 
     Section(CL, "SILENT AIM")
-    Checkbox(CL, "Enable Silent Aim", false, function(v) A.SILENT_AIM = v end)
-    Checkbox(CL, "Team Check", false, function(v) A.TEAM_CHECK = v end)
-    Checkbox(CL, "Show FOV", true, function(v) A.SHOW_FOV = v end)
-    Checkbox(CL, "Snapline", false, function(v) A.SNAPLINE = v end)
-    Slider(CL, "Hit Chance", 0, 100, 95, function(v) A.HIT_CHANCE = v end, "%")
-    Slider(CL, "FOV Radius", 1, 500, 200, function(v) A.FOV_RADIUS = v end, "px")
-    Dropdown(CL, "Hit Part", {"Head","Torso","HumanoidRootPart","Random"}, "Head", function(v) A.HIT_PART = v end)
+    Checkbox(CL, "Enable Silent Aim", false, function(v) A.SILENT_AIM = v end, "SILENT_AIM")
+    Checkbox(CL, "Team Check", false, function(v) A.TEAM_CHECK = v end, "TEAM_CHECK")
+    Checkbox(CL, "Show FOV", true, function(v) A.SHOW_FOV = v end, "SHOW_FOV")
+    Checkbox(CL, "Snapline", false, function(v) A.SNAPLINE = v end, "SNAPLINE")
+    Slider(CL, "Hit Chance", 0, 100, 95, function(v) A.HIT_CHANCE = v end, "%", "HIT_CHANCE")
+    Slider(CL, "FOV Radius", 1, 500, 200, function(v) A.FOV_RADIUS = v end, "px", "FOV_RADIUS")
+    Dropdown(CL, "Hit Part", {"Head","Torso","HumanoidRootPart","Random"}, "Head", function(v) A.HIT_PART = v end, "HIT_PART")
     ColorRow(CL, "FOV Color", function() return A.silentAimFovColor end, function(c) A.silentAimFovColor = c end)
     ColorRow(CL, "Snapline Color", function() return A.silentAimSnaplineColor end, function(c) A.silentAimSnaplineColor = c end)
 
     Section(CL, "BULLET TRACER")
-    Checkbox(CL, "Enable Tracer", false, function(v) A.TRACER = v end)
-    Slider(CL, "Lifetime", 1, 10, 3, function(v) A.TRACER_LIFE = v end, "s")
-    Dropdown(CL, "Type", {"Red Laser","Neon Linia Bruh"}, "Red Laser", function(v) A.TRACER_TYPE = v end)
+    Checkbox(CL, "Enable Tracer", false, function(v) A.TRACER = v end, "TRACER")
+    Checkbox(CL, "Rainbow Tracer", false, function(v) A.RAINBOW_TRACER = v end, "RAINBOW_TRACER")
+    Slider(CL, "Lifetime", 1, 10, 3, function(v) A.TRACER_LIFE = v end, "s", "TRACER_LIFE")
+    Dropdown(CL, "Type", {"Red Laser","Neon Linia Bruh"}, "Red Laser", function(v) A.TRACER_TYPE = v end, "TRACER_TYPE")
 
     Section(CR, "RAPID FIRE")
-    Checkbox(CR, "Enable Rapid Fire", false, function(v) A.RAPID_FIRE = v end)
-    Slider(CR, "Rate Value (x100k)", 1, 100, 100, function(v) A.RAPID_VALUE = v * 100000 end)
+    Checkbox(CR, "Enable Rapid Fire", false, function(v) A.RAPID_FIRE = v end, "RAPID_FIRE")
+    Slider(CR, "Rate Value (x100k)", 1, 100, 100, function(v) A.RAPID_VALUE = v * 100000 end, "", "RAPID_VALUE")
 
     Section(CR, "WEAPON")
-    Checkbox(CR, "Instant Hit", false, function(v) A.instantHitEnabled = v end)
-    Checkbox(CR, "No Recoil", false, function(v) A.noRecoilEnabled = v end)
-    Checkbox(CR, "No Spread", false, function(v) A.noSpreadEnabled = v end)
-    Checkbox(CR, "Instant Reload", false, function(v) A.instantReloadEnabled = v end)
-    Checkbox(CR, "Auto Reload", false, function(v) A.autoReloadEnabled = v end)
-    Checkbox(CR, "No Equip Delay", false, function(v) A.noEquipDelayEnabled = v end)
-    Checkbox(CR, "Full Auto", false, function(v) A.fullAutoEnabled = v end)
-    Slider(CR, "Bullet Speed", 500, 5000, 5000, function(v) A.bulletSpeedValue = v end)
+    Checkbox(CR, "Instant Hit", false, function(v) A.instantHitEnabled = v end, "instantHitEnabled")
+    Checkbox(CR, "No Recoil", false, function(v) A.noRecoilEnabled = v end, "noRecoilEnabled")
+    Checkbox(CR, "No Spread", false, function(v) A.noSpreadEnabled = v end, "noSpreadEnabled")
+    Checkbox(CR, "Instant Reload", false, function(v) A.instantReloadEnabled = v end, "instantReloadEnabled")
+    Checkbox(CR, "Auto Reload", false, function(v) A.autoReloadEnabled = v end, "autoReloadEnabled")
+    Checkbox(CR, "No Equip Delay", false, function(v) A.noEquipDelayEnabled = v end, "noEquipDelayEnabled")
+    Checkbox(CR, "Full Auto", false, function(v) A.fullAutoEnabled = v end, "fullAutoEnabled")
+    Slider(CR, "Bullet Speed", 500, 5000, 5000, function(v) A.bulletSpeedValue = v end, "", "bulletSpeedValue")
 
     Section(CR, "HIT MARKER")
-    Checkbox(CR, "Enable Hit Marker", true, function(v) A.hitMarkerEnabled = v end)
+    Checkbox(CR, "Enable Hit Marker", true, function(v) A.hitMarkerEnabled = v end, "hitMarkerEnabled")
     ColorRow(CR, "Marker Color", function() return A.hitMarkerColor end, function(c) A.hitMarkerColor = c end)
-    Slider(CR, "Marker Size", 4, 30, 9, function(v) A.hitMarkerSize = v end, "px")
-    Slider(CR, "Duration (x10ms)", 1, 100, 35, function(v) A.hitMarkerDuration = v/100 end, "s")
+    Slider(CR, "Marker Size", 4, 30, 9, function(v) A.hitMarkerSize = v end, "px", "hitMarkerSize")
+    Slider(CR, "Duration (x10ms)", 1, 100, 35, function(v) A.hitMarkerDuration = v/100 end, "s", "hitMarkerDuration")
 
     Section(CR, "HIT SOUND")
-    Checkbox(CR, "Enable Hit Sound", false, function(v) A.HIT_SOUND = v end)
+    Checkbox(CR, "Enable Hit Sound", false, function(v) A.HIT_SOUND = v end, "HIT_SOUND")
     Dropdown(CR, "Sound Preset", {"Rust","Minecraft","Rthro","Minecraft bow","Skeet","Neverlose","Untimity"}, "Rust",
         function(v)
             local p = A.HIT_SOUND_PRESETS[v]
             if p then A.HIT_SOUND_ID = p end
-        end)
-    Slider(CR, "Volume (x0.01)", 0, 200, 30, function(v) A.HIT_SOUND_VOL = v/100 end)
+        end, "HIT_SOUND_ID")
+    Slider(CR, "Volume (x0.01)", 0, 200, 30, function(v) A.HIT_SOUND_VOL = v/100 end, "", "HIT_SOUND_VOL")
 
     local VL = A.ScrollsL[2]
     local VR = A.ScrollsR[2]
 
     Section(VL, "ESP")
-    Checkbox(VL, "Enable ESP", false, function(v) A.espEnabled = v end)
-    Checkbox(VL, "Box", true, function(v) A.espBox = v end)
+    Checkbox(VL, "Enable ESP", false, function(v) A.espEnabled = v end, "espEnabled")
+    Checkbox(VL, "Box", true, function(v) A.espBox = v end, "espBox")
     ColorRow(VL, "Box Color", function() return A.espBoxColor end, function(c) A.espBoxColor = c end)
-    Checkbox(VL, "Name", true, function(v) A.espName = v end)
+    Checkbox(VL, "Name", true, function(v) A.espName = v end, "espName")
     ColorRow(VL, "Name Color", function() return A.espNameColor end, function(c) A.espNameColor = c end)
-    Checkbox(VL, "Health", true, function(v) A.espHealth = v end)
-    Checkbox(VL, "Distance", true, function(v) A.espDistance = v end)
+    Checkbox(VL, "Health", true, function(v) A.espHealth = v end, "espHealth")
+    Checkbox(VL, "Distance", true, function(v) A.espDistance = v end, "espDistance")
     ColorRow(VL, "Dist Color", function() return A.espDistColor end, function(c) A.espDistColor = c end)
-    Checkbox(VL, "Weapon", true, function(v) A.espWeapon = v end)
+    Checkbox(VL, "Weapon", true, function(v) A.espWeapon = v end, "espWeapon")
     ColorRow(VL, "Weapon Color", function() return A.espWeapColor end, function(c) A.espWeapColor = c end)
 
     Section(VL, "CUSTOM HANDS")
@@ -952,27 +992,55 @@ do
         A.customHandsEnabled = v
         if v and A.SetupCustomHands then A.SetupCustomHands() end
         if not v then A.activeLockedArms = {} end
-    end)
+    end, "customHandsEnabled")
     ColorRow(VL, "Hands Color", function() return A.customHandsColor end, function(c)
         A.customHandsColor = c
         for part,_ in pairs(A.activeLockedArms) do
             pcall(function() part.Color = c end)
         end
     end)
-    Slider(VL, "Hands Transparency", 0, 100, 55, function(v) A.customHandsTransp = v/100 end, "%")
+    Slider(VL, "Hands Transparency", 0, 100, 55, function(v) A.customHandsTransp = v/100 end, "%", "customHandsTransp")
 
     Section(VL, "VIEW MODEL")
     Checkbox(VL, "Enable View Model", false, function(v)
         A.viewModelEnabled = v
         if v and A.ApplyViewModel then A.ApplyViewModel() end
         if not v and A.RemoveViewModel then A.RemoveViewModel() end
-    end)
-    Slider(VL, "X", -20, 20, 5, function(v) A.viewModelX = v end)
-    Slider(VL, "Y", -20, 20, -2, function(v) A.viewModelY = v end)
-    Slider(VL, "Z", -20, 20, -8, function(v) A.viewModelZ = v end)
+    end, "viewModelEnabled")
+    Slider(VL, "X", -20, 20, 5, function(v) A.viewModelX = v end, "", "viewModelX")
+    Slider(VL, "Y", -20, 20, -2, function(v) A.viewModelY = v end, "", "viewModelY")
+    Slider(VL, "Z", -20, 20, -8, function(v) A.viewModelZ = v end, "", "viewModelZ")
+
+    Section(VL, "THIRD PERSON")
+    Checkbox(VL, "Enable Third Person", false, function(v)
+        A.thirdPersonEnabled = v
+        if v then
+            LP.CameraMode = Enum.CameraMode.Classic
+            LP.CameraMaxZoomDistance = A.thirdPersonDistance
+            LP.CameraMinZoomDistance = 1
+        else
+            LP.CameraMaxZoomDistance = 0.5
+            LP.CameraMinZoomDistance = 0.5
+        end
+    end, "thirdPersonEnabled")
+    Slider(VL, "Distance", 5, 50, 15, function(v)
+        A.thirdPersonDistance = v
+        if A.thirdPersonEnabled then LP.CameraMaxZoomDistance = v end
+    end, "", "thirdPersonDistance")
+
+    Section(VL, "TUNG TUNG SAHUR")
+    Checkbox(VL, "Enable Sahur", false, function(v)
+        A.sahurEnabled = v
+        if v and A.SetupSahur then A.SetupSahur() end
+        if not v and A.RemoveSahur then A.RemoveSahur() end
+    end, "sahurEnabled")
+    Dropdown(VL, "Model", {"TungSahur","Sahur 2"}, "TungSahur", function(v)
+        A.sahurModel = v
+        if A.sahurEnabled and A.SetupSahur then A.SetupSahur() end
+    end, "sahurModel")
 
     Section(VR, "GUN CHAMS")
-    Checkbox(VR, "Enable Gun Chams", false, function(v) A.gunChamsEnabled = v end)
+    Checkbox(VR, "Enable Gun Chams", false, function(v) A.gunChamsEnabled = v end, "gunChamsEnabled")
     ColorRow(VR, "Gun Chams Color", function() return A.gunChamsColor end, function(c) A.gunChamsColor = c end)
 
     Section(VR, "GAMMA")
@@ -988,7 +1056,7 @@ do
             L.OutdoorAmbient = Color3.fromRGB(128,128,128)
             L.Brightness = 1
         end
-    end)
+    end, "gammaEnabled")
     ColorRow(VR, "Gamma Color", function() return A.gammaColor end, function(c)
         A.gammaColor = c
         if A.gammaEnabled then
@@ -999,7 +1067,7 @@ do
     Slider(VR, "Gamma Brightness (x0.1)", 1, 50, 10, function(v)
         A.gammaValue = v
         if A.gammaEnabled then A.Lighting.Brightness = v/10 end
-    end)
+    end, "", "gammaValue")
 
     Section(VR, "FOG")
     Checkbox(VR, "Enable Fog", false, function(v)
@@ -1012,7 +1080,7 @@ do
             A.Lighting.FogEnd = 100000
             A.Lighting.FogStart = 0
         end
-    end)
+    end, "fogEnabled")
     ColorRow(VR, "Fog Color", function() return A.fogColor end, function(c)
         A.fogColor = c
         if A.fogEnabled then A.Lighting.FogColor = c end
@@ -1020,29 +1088,29 @@ do
     Slider(VR, "Fog Start", 0, 2000, 100, function(v)
         A.fogStart = v
         if A.fogEnabled then A.Lighting.FogStart = v end
-    end)
+    end, "", "fogStart")
     Slider(VR, "Fog End", 50, 5000, 500, function(v)
         A.fogEnd = v
         if A.fogEnabled then A.Lighting.FogEnd = v end
-    end)
+    end, "", "fogEnd")
 
     Section(VR, "SKYBOX")
     Checkbox(VR, "Enable Skybox", false, function(v)
         A.skyboxEnabled = v
         if not v and A.activeSky then A.activeSky:Destroy() A.activeSky = nil end
         if v and A.ApplySkybox then A.ApplySkybox(A.skyboxMode) end
-    end)
+    end, "skyboxEnabled")
     Dropdown(VR, "Skybox Preset",
         {"None","Aurorka","Galaxy","Nebula","Nebula 2","Orion"},
         "None",
         function(v)
             A.skyboxMode = v
             if A.skyboxEnabled and A.ApplySkybox then A.ApplySkybox(v) end
-        end)
+        end, "skyboxMode")
 
     Section(VR, "CAMERA / WORLD")
-    Checkbox(VR, "Custom FOV", false, function(v) A.cameraFovEnabled = v end)
-    Slider(VR, "FOV Value", 60, 160, 120, function(v) A.cameraFovValue = v end)
+    Checkbox(VR, "Custom FOV", false, function(v) A.cameraFovEnabled = v end, "cameraFovEnabled")
+    Slider(VR, "FOV Value", 60, 160, 120, function(v) A.cameraFovValue = v end, "", "cameraFovValue")
     Checkbox(VR, "No Fog", false, function(v)
         A.noFogEnabled = v
         if v then
@@ -1052,7 +1120,7 @@ do
             A.Lighting.FogEnd = 100000
             A.Lighting.FogStart = 0
         end
-    end)
+    end, "noFogEnabled")
     Checkbox(VR, "Fullbright", false, function(v)
         A.fullbrightEnabled = v
         if v then
@@ -1065,7 +1133,7 @@ do
             A.Lighting.GlobalShadows = true
             A.Lighting.FogEnd = 100000
         end
-    end)
+    end, "fullbrightEnabled")
 
     local ML = A.ScrollsL[3]
     local MR = A.ScrollsR[3]
@@ -1075,22 +1143,22 @@ do
         A.speedHackEnabled = v
         local h = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
         if h then h.WalkSpeed = v and A.speedValue or 16 end
-    end)
+    end, "speedHackEnabled")
     Slider(ML, "Speed Value", 16, 500, 50, function(v)
         A.speedValue = v
         if A.speedHackEnabled then
             local h = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
             if h then h.WalkSpeed = v end
         end
-    end)
-    Checkbox(ML, "Infinite Jump", false, function(v) A.infJumpEnabled = v end)
-    Checkbox(ML, "No Clip", false, function(v) A.noClipEnabled = v end)
-    Checkbox(ML, "Bunny Hop", false, function(v) A.bhopEnabled = v end)
-    Checkbox(ML, "Jump Shot", false, function(v) A.JUMP_SHOT = v end)
+    end, "", "speedValue")
+    Checkbox(ML, "Infinite Jump", false, function(v) A.infJumpEnabled = v end, "infJumpEnabled")
+    Checkbox(ML, "No Clip", false, function(v) A.noClipEnabled = v end, "noClipEnabled")
+    Checkbox(ML, "Bunny Hop", false, function(v) A.bhopEnabled = v end, "bhopEnabled")
+    Checkbox(ML, "Jump Shot", false, function(v) A.JUMP_SHOT = v end, "JUMP_SHOT")
 
     Section(ML, "FLY")
-    Checkbox(ML, "Enable Fly", false, function(v) A.flyEnabled = v end)
-    Slider(ML, "Fly Speed", 5, 500, 50, function(v) A.flySpeed = v end)
+    Checkbox(ML, "Enable Fly", false, function(v) A.flyEnabled = v end, "flyEnabled")
+    Slider(ML, "Fly Speed", 5, 500, 50, function(v) A.flySpeed = v end, "", "flySpeed")
     KeybindRow(ML, "Fly Keybind", A.keybinds.Fly, function(k) A.keybinds.Fly = k end)
 
     Section(MR, "TELEPORT")
@@ -1102,10 +1170,10 @@ do
         end
     end)
     KeybindRow(MR, "TP Keybind", A.tpKey, function(k) A.tpKey = k end)
-    Slider(MR, "TP Distance", 10, 500, 100, function(v) A.tpDistance = v end)
+    Slider(MR, "TP Distance", 10, 500, 100, function(v) A.tpDistance = v end, "", "tpDistance")
 
     Section(MR, "FREEZE")
-    Checkbox(MR, "Enable Freeze (hold key)", false, function(v) A.freezeEnabled = v end)
+    Checkbox(MR, "Enable Freeze (hold key)", false, function(v) A.freezeEnabled = v end, "freezeEnabled")
     KeybindRow(MR, "Freeze Keybind", A.keybinds.Freeze, function(k) A.keybinds.Freeze = k end)
     Checkbox(MR, "Show Freeze Button (mobile)", false, function(v)
         if v then
@@ -1117,8 +1185,8 @@ do
 
     Section(MR, "AIR WALK")
     KeybindRow(MR, "Air Walk Keybind", A.airWalkKey, function(k) A.airWalkKey = k end)
-    Slider(MR, "Air Walk Duration", 1, 10, 3, function(v) A.airWalkDuration = v end, "s")
-    Slider(MR, "Air Walk Height", 20, 300, 100, function(v) A.airWalkHeight = v end)
+    Slider(MR, "Air Walk Duration", 1, 10, 3, function(v) A.airWalkDuration = v end, "s", "airWalkDuration")
+    Slider(MR, "Air Walk Height", 20, 300, 100, function(v) A.airWalkHeight = v end, "", "airWalkHeight")
     Checkbox(MR, "Show Air Walk Button (mobile)", false, function(v)
         if v then
             if A.CreateAirWalkButton then A.CreateAirWalkButton() end
@@ -1131,7 +1199,7 @@ do
     local SR = A.ScrollsR[4]
 
     Section(SL, "INFO")
-    MakeText(SL, "Project Astra v22.1", UDim2.fromOffset(10,0), UDim2.new(1,-20,0,22), 13, ACCENT)
+    MakeText(SL, "Project Astra v23", UDim2.fromOffset(10,0), UDim2.new(1,-20,0,22), 13, ACCENT)
     MakeText(SL, "t.me/epsteinhub", UDim2.fromOffset(10,24), UDim2.new(1,-20,0,22), 13, WHITE)
 
     Section(SL, "UI SETTINGS")
@@ -1139,6 +1207,8 @@ do
         A.showKeybindOverlay = v
         if A.SetKeybindOverlayVisible then A.SetKeybindOverlayVisible(v) end
     end)
+    Checkbox(SL, "Rainbow UI", false, function(v) A.rainbowUIEnabled = v end, "rainbowUIEnabled")
+    Slider(SL, "Rainbow Speed", 1, 20, 1, function(v) A.rainbowUISpeed = v/10 end, "x", "rainbowUISpeed")
 
     Section(SL, "WHITELIST")
     local wlFrame = Instance.new("ScrollingFrame")
@@ -1273,60 +1343,52 @@ do
         end
 
         local function CollectConfig()
-            return {
-                SILENT_AIM = A.SILENT_AIM, HIT_CHANCE = A.HIT_CHANCE, HIT_PART = A.HIT_PART,
-                FOV_RADIUS = A.FOV_RADIUS, SHOW_FOV = A.SHOW_FOV, TEAM_CHECK = A.TEAM_CHECK,
-                SNAPLINE = A.SNAPLINE, TRACER = A.TRACER, TRACER_TYPE = A.TRACER_TYPE, TRACER_LIFE = A.TRACER_LIFE,
-                RAPID_FIRE = A.RAPID_FIRE, RAPID_VALUE = A.RAPID_VALUE,
-                HIT_SOUND = A.HIT_SOUND, HIT_SOUND_ID = A.HIT_SOUND_ID, HIT_SOUND_VOL = A.HIT_SOUND_VOL,
-                hitMarkerEnabled = A.hitMarkerEnabled, hitMarkerSize = A.hitMarkerSize, hitMarkerDuration = A.hitMarkerDuration,
-                instantHitEnabled = A.instantHitEnabled, noRecoilEnabled = A.noRecoilEnabled, noSpreadEnabled = A.noSpreadEnabled,
-                instantReloadEnabled = A.instantReloadEnabled, autoReloadEnabled = A.autoReloadEnabled,
-                noEquipDelayEnabled = A.noEquipDelayEnabled, fullAutoEnabled = A.fullAutoEnabled, bulletSpeedValue = A.bulletSpeedValue,
-                cameraFovEnabled = A.cameraFovEnabled, cameraFovValue = A.cameraFovValue,
-                noFogEnabled = A.noFogEnabled, fullbrightEnabled = A.fullbrightEnabled,
-                espEnabled = A.espEnabled, espBox = A.espBox, espName = A.espName, espHealth = A.espHealth,
-                espDistance = A.espDistance, espWeapon = A.espWeapon,
-                customHandsEnabled = A.customHandsEnabled, customHandsTransp = A.customHandsTransp,
-                viewModelEnabled = A.viewModelEnabled, viewModelX = A.viewModelX, viewModelY = A.viewModelY, viewModelZ = A.viewModelZ,
-                gunChamsEnabled = A.gunChamsEnabled, skyboxEnabled = A.skyboxEnabled, skyboxMode = A.skyboxMode,
-                gammaEnabled = A.gammaEnabled, gammaValue = A.gammaValue,
-                fogEnabled = A.fogEnabled, fogStart = A.fogStart, fogEnd = A.fogEnd,
-                speedHackEnabled = A.speedHackEnabled, speedValue = A.speedValue,
-                infJumpEnabled = A.infJumpEnabled, noClipEnabled = A.noClipEnabled, bhopEnabled = A.bhopEnabled,
-                JUMP_SHOT = A.JUMP_SHOT, flyEnabled = A.flyEnabled, flySpeed = A.flySpeed,
-                whitelistEnabled = A.whitelistEnabled, whitelistPlayers = A.whitelistPlayers,
-                silentAimFovColor = {A.silentAimFovColor.R, A.silentAimFovColor.G, A.silentAimFovColor.B},
-                silentAimSnaplineColor = {A.silentAimSnaplineColor.R, A.silentAimSnaplineColor.G, A.silentAimSnaplineColor.B},
-                hitMarkerColor = {A.hitMarkerColor.R, A.hitMarkerColor.G, A.hitMarkerColor.B},
-                espBoxColor = {A.espBoxColor.R, A.espBoxColor.G, A.espBoxColor.B},
-                espNameColor = {A.espNameColor.R, A.espNameColor.G, A.espNameColor.B},
-                espDistColor = {A.espDistColor.R, A.espDistColor.G, A.espDistColor.B},
-                espWeapColor = {A.espWeapColor.R, A.espWeapColor.G, A.espWeapColor.B},
-                customHandsColor = {A.customHandsColor.R, A.customHandsColor.G, A.customHandsColor.B},
-                gunChamsColor = {A.gunChamsColor.R, A.gunChamsColor.G, A.gunChamsColor.B},
-                gammaColor = {A.gammaColor.R, A.gammaColor.G, A.gammaColor.B},
-                fogColor = {A.fogColor.R, A.fogColor.G, A.fogColor.B},
-                AutoLoad = AutoLoadVal,
-            }
+            local out = {}
+            for k, v in pairs(A) do
+                if type(v) == "number" or type(v) == "string" or type(v) == "boolean" then
+                    out[k] = v
+                elseif typeof(v) == "Color3" then
+                    out[k] = {v.R, v.G, v.B, "_color"}
+                end
+            end
+            out.AutoLoad = AutoLoadVal
+            return out
         end
-
-        local colorKeys = {
-            silentAimFovColor=true, silentAimSnaplineColor=true, hitMarkerColor=true,
-            espBoxColor=true, espNameColor=true, espDistColor=true, espWeapColor=true,
-            customHandsColor=true, gunChamsColor=true, gammaColor=true, fogColor=true,
-        }
 
         local function ApplyConfig(cfg)
             if not cfg then return end
             for k, v in pairs(cfg) do
-                if colorKeys[k] and type(v) == "table" and #v == 3 then
+                if k == "AutoLoad" then
+                    AutoLoadVal = v
+                    autoFill.Visible = v
+                elseif type(v) == "table" and v[4] == "_color" then
                     A[k] = Color3.new(v[1], v[2], v[3])
-                elseif k ~= "AutoLoad" then
+                elseif type(v) ~= "table" and type(v) ~= "function" and type(v) ~= "userdata" then
                     A[k] = v
                 end
             end
-            RenderWhitelist()
+            for key, fn in pairs(A.RefreshCallbacks) do
+                if A[key] ~= nil then
+                    pcall(fn, A[key])
+                end
+            end
+            if A.RefreshWhitelistUi then A.RefreshWhitelistUi() end
+            if A.RenderWhitelist then A.RenderWhitelist() end
+            if A.SILENT_AIM == false then end
+            if A.customHandsEnabled and A.SetupCustomHands then A.SetupCustomHands() end
+            if not A.customHandsEnabled then A.activeLockedArms = {} end
+            if A.gunChamsEnabled == false then end
+            if A.skyboxEnabled and A.ApplySkybox then A.ApplySkybox(A.skyboxMode) end
+            if not A.skyboxEnabled and A.activeSky then A.activeSky:Destroy() A.activeSky = nil end
+            if A.viewModelEnabled and A.ApplyViewModel then A.ApplyViewModel() end
+            if not A.viewModelEnabled and A.RemoveViewModel then A.RemoveViewModel() end
+            if A.sahurEnabled and A.SetupSahur then A.SetupSahur() end
+            if not A.sahurEnabled and A.RemoveSahur then A.RemoveSahur() end
+            if A.thirdPersonEnabled then
+                LP.CameraMode = Enum.CameraMode.Classic
+                LP.CameraMaxZoomDistance = A.thirdPersonDistance
+                LP.CameraMinZoomDistance = 1
+            end
         end
 
         local function RenderCfgList()
@@ -1388,10 +1450,6 @@ do
                                 local data = A.HttpService:JSONDecode(readfile(path))
                                 ApplyConfig(data)
                                 nameBox.Text = n
-                                if data.AutoLoad ~= nil then
-                                    AutoLoadVal = data.AutoLoad
-                                    autoFill.Visible = AutoLoadVal
-                                end
                             end
                         end)
                     end)
@@ -1407,6 +1465,7 @@ do
                 end
             end
         end
+        A.RenderCfgList = RenderCfgList
 
         saveBtn.MouseButton1Click:Connect(function()
             pcall(function()
@@ -1529,6 +1588,13 @@ do
         end)
     end
 
+    local rainbowHue = 0
+    RS.RenderStepped:Connect(function(dt)
+        if A.RAINBOW_TRACER then
+            rainbowHue = (rainbowHue + dt*0.5) % 1
+        end
+    end)
+
     function A.CreateTracer(from, to)
         if not A.TRACER then return end
         if (to - from).Magnitude < 1 then return end
@@ -1548,7 +1614,19 @@ do
         beam.Attachment1 = a1
         beam.FaceCamera = true
         beam.LightEmission = 1
-        if A.TRACER_TYPE == "Red Laser" then
+
+        if A.RAINBOW_TRACER then
+            local c1 = Color3.fromHSV(rainbowHue, 1, 1)
+            local c2 = Color3.fromHSV((rainbowHue+0.3)%1, 1, 1)
+            local c3 = Color3.fromHSV((rainbowHue+0.6)%1, 1, 1)
+            beam.Width0 = 0.6
+            beam.Width1 = 0.6
+            beam.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, c1),
+                ColorSequenceKeypoint.new(0.5, c2),
+                ColorSequenceKeypoint.new(1, c3),
+            })
+        elseif A.TRACER_TYPE == "Red Laser" then
             beam.Width0 = 1.2
             beam.Width1 = 1.2
             beam.Color = ColorSequence.new(Color3.fromRGB(255,10,10))
@@ -1636,12 +1714,40 @@ do
 
     local TARGET_ARM_NAMES = {["RightArm"]=true,["LeftArm"]=true,["SleeveL"]=true,["SleeveR"]=true}
 
-    local function BindArm(part)
-        if A.activeLockedArms[part] then return end
-        A.activeLockedArms[part] = true
+    local function ForceHandsStyle(part)
+        if not part or not part.Parent then return end
+        local pbr = part:FindFirstChildOfClass("SurfaceAppearance")
+        if pbr then pbr:Destroy() end
+        local sm = part:FindFirstChildOfClass("SpecialMesh")
+        if sm and sm.TextureId ~= "" then sm.TextureId = "" end
+        if part:IsA("MeshPart") and part.TextureID ~= "" then part.TextureID = "" end
+        for _,c in ipairs(part:GetChildren()) do
+            if c:IsA("Texture") or c:IsA("Decal") or c:IsA("Clothing") then
+                c:Destroy()
+            end
+        end
         part.Color = A.customHandsColor
         part.Transparency = A.customHandsTransp
         part.Material = Enum.Material.Neon
+        pcall(function() part.LocalTransparencyModifier = A.customHandsTransp end)
+    end
+
+    local function BindArm(part)
+        if A.activeLockedArms[part] then return end
+        A.activeLockedArms[part] = true
+        ForceHandsStyle(part)
+        local busy = false
+        part.Changed:Connect(function(prop)
+            if busy or not part.Parent or not A.customHandsEnabled then return end
+            if prop == "Color" or prop == "Transparency" or prop == "Material" or prop == "LocalTransparencyModifier" then
+                busy = true
+                part.Color = A.customHandsColor
+                part.Transparency = A.customHandsTransp
+                part.Material = Enum.Material.Neon
+                pcall(function() part.LocalTransparencyModifier = A.customHandsTransp end)
+                busy = false
+            end
+        end)
     end
 
     function A.SetupCustomHands()
@@ -1649,6 +1755,14 @@ do
             if obj:IsA("BasePart") and TARGET_ARM_NAMES[obj.Name] then BindArm(obj) end
         end
     end
+
+    LP.CharacterAdded:Connect(function()
+        A.activeLockedArms = {}
+        if A.customHandsEnabled then
+            task.wait(0.5)
+            A.SetupCustomHands()
+        end
+    end)
 
     function A.ApplyViewModel()
         if A.viewModelConn then A.viewModelConn:Disconnect() A.viewModelConn = nil end
@@ -1669,6 +1783,81 @@ do
 
     function A.RemoveViewModel()
         if A.viewModelConn then A.viewModelConn:Disconnect() A.viewModelConn = nil end
+    end
+
+    function A.SetupSahur()
+        if A.sahurConn then A.sahurConn:Disconnect() A.sahurConn = nil end
+        if A.sahurPart then A.sahurPart:Destroy() A.sahurPart = nil end
+        if A.sahurShiftLockConn then A.sahurShiftLockConn:Disconnect() A.sahurShiftLockConn = nil end
+
+        local char = LP.Character
+        if not char then return end
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+
+        LP.CameraMode = Enum.CameraMode.Classic
+        LP.CameraMaxZoomDistance = 40
+        LP.CameraMinZoomDistance = 10
+
+        for _, part in ipairs(char:GetChildren()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                part.Transparency = 1
+                part.CanCollide = false
+            elseif part:IsA("Accessory") or part:IsA("Shirt") or part:IsA("Pants") then
+                part:Destroy()
+            end
+        end
+
+        local assetId = (A.sahurModel == "Sahur 2") and A.sahurModel2 or A.sahurModel1
+        local ok, objects = pcall(function()
+            return game:GetObjects("rbxassetid://" .. assetId)
+        end)
+        if not ok or not objects or #objects == 0 then return end
+
+        local loadedModel = objects[1]
+        local mesh = loadedModel:IsA("MeshPart") and loadedModel or loadedModel:FindFirstChildOfClass("MeshPart")
+        if not mesh then return end
+
+        local body = mesh:Clone()
+        body.Parent = char
+        body.CFrame = root.CFrame
+        body.CanCollide = false
+        body.Massless = true
+        local weld = Instance.new("WeldConstraint")
+        weld.Part0 = root
+        weld.Part1 = body
+        weld.Parent = root
+        A.sahurPart = body
+
+        if hum then hum.AutoRotate = false end
+        A.sahurShiftLockConn = RS.RenderStepped:Connect(function()
+            if not char.Parent or not hum or hum.Health <= 0 then
+                if A.sahurShiftLockConn then A.sahurShiftLockConn:Disconnect() A.sahurShiftLockConn = nil end
+                return
+            end
+            local r = char:FindFirstChild("HumanoidRootPart")
+            if r then
+                local look = Camera.CFrame.LookVector
+                local rot = math.atan2(-look.X, -look.Z)
+                r.CFrame = CFrame.new(r.Position) * CFrame.Angles(0, rot, 0)
+            end
+        end)
+    end
+
+    function A.RemoveSahur()
+        if A.sahurConn then A.sahurConn:Disconnect() A.sahurConn = nil end
+        if A.sahurPart then A.sahurPart:Destroy() A.sahurPart = nil end
+        if A.sahurShiftLockConn then A.sahurShiftLockConn:Disconnect() A.sahurShiftLockConn = nil end
+        local char = LP.Character
+        if not char then return end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then hum.AutoRotate = true end
+        for _, p in ipairs(char:GetDescendants()) do
+            if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
+                p.Transparency = 0
+            end
+        end
     end
 
     function A.DoTeleport()
@@ -1915,6 +2104,24 @@ do
         if v then A.UpdateKeybindOverlay() end
     end
 
+    local rainbowHueUI = 0
+    local GUIRegistry = {}
+    A.RegisterRainbow = function(obj)
+        table.insert(GUIRegistry, obj)
+    end
+
+    RS.RenderStepped:Connect(function(dt)
+        if A.rainbowUIEnabled then
+            rainbowHueUI = (rainbowHueUI + dt * A.rainbowUISpeed) % 1
+            local col = Color3.fromHSV(rainbowHueUI, 1, 1)
+            for _, obj in ipairs(GUIRegistry) do
+                if obj and obj.Parent then
+                    pcall(function() obj.Color = col end)
+                end
+            end
+        end
+    end)
+
     RS.RenderStepped:Connect(function()
         local vp = Camera.ViewportSize
         local cx = vp.X/2
@@ -2082,7 +2289,7 @@ do
             if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir - Vector3.new(0,1,0) end
             root.Velocity = dir.Magnitude > 0 and dir.Unit * A.flySpeed or Vector3.zero
             hum.PlatformStand = true
-        elseif hum.PlatformStand and not A.freezeEnabled and not A.airWalkBusy then
+        elseif hum.PlatformStand and not A.freezeEnabled and not A.airWalkBusy and not A.sahurEnabled then
             hum.PlatformStand = false
         end
         if A.freezeEnabled and UIS:IsKeyDown(A.keybinds.Freeze) then
@@ -2105,7 +2312,9 @@ do
         if A.gunChamsEnabled then
             for _,tool in ipairs(char:GetChildren()) do
                 if tool:IsA("Tool") then
-                    for _,p in ipairs(tool:GetDescendants()) do
+                    local toolWorld = workspace:FindFirstChild(tool.Name)
+                    local target = toolWorld or tool
+                    for _,p in ipairs(target:GetDescendants()) do
                         if p:IsA("BasePart") then
                             p.Color = A.gunChamsColor
                             p.Material = Enum.Material.Neon
@@ -2393,4 +2602,4 @@ task.defer(function()
     end
 end)
 
-print("[Astra v22.1] LOADED OK")
+print("[Astra v23] LOADED OK")
