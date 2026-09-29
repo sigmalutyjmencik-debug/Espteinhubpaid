@@ -1619,20 +1619,20 @@ do
             local c1 = Color3.fromHSV(rainbowHue, 1, 1)
             local c2 = Color3.fromHSV((rainbowHue+0.3)%1, 1, 1)
             local c3 = Color3.fromHSV((rainbowHue+0.6)%1, 1, 1)
-            beam.Width0 = 0.6
-            beam.Width1 = 0.6
+            beam.Width0 = 0.55
+            beam.Width1 = 0.55
             beam.Color = ColorSequence.new({
                 ColorSequenceKeypoint.new(0, c1),
                 ColorSequenceKeypoint.new(0.5, c2),
                 ColorSequenceKeypoint.new(1, c3),
             })
         elseif A.TRACER_TYPE == "Red Laser" then
-            beam.Width0 = 1.2
-            beam.Width1 = 1.2
+            beam.Width0 = 1.1
+            beam.Width1 = 1.1
             beam.Color = ColorSequence.new(Color3.fromRGB(255,10,10))
         else
-            beam.Width0 = 0.4
-            beam.Width1 = 0.4
+            beam.Width0 = 0.38
+            beam.Width1 = 0.38
             beam.Color = ColorSequence.new({
                 ColorSequenceKeypoint.new(0, Color3.fromRGB(255,255,255)),
                 ColorSequenceKeypoint.new(0.5, Color3.fromRGB(150,50,220)),
@@ -1790,6 +1790,21 @@ do
         if A.sahurRespawnConn then A.sahurRespawnConn:Disconnect() A.sahurRespawnConn = nil end
         if A.sahurHeartbeatConn then A.sahurHeartbeatConn:Disconnect() A.sahurHeartbeatConn = nil end
         if A.sahurSpinConn then A.sahurSpinConn:Disconnect() A.sahurSpinConn = nil end
+        if A.sahurHideConn then A.sahurHideConn:Disconnect() A.sahurHideConn = nil end
+    end
+
+    local function HideCharParts(char)
+        for _, p in ipairs(char:GetChildren()) do
+            if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
+                p.LocalTransparencyModifier = 1
+                p.Transparency = 1
+                p.CanCollide = false
+            elseif p:IsA("Accessory") or p:IsA("Shirt") or p:IsA("Pants") or p:IsA("CharacterMesh") then
+                p:Destroy()
+            elseif p:IsA("Decal") or p:IsA("Texture") then
+                p.Transparency = 1
+            end
+        end
     end
 
     local function MountSahur()
@@ -1810,14 +1825,7 @@ do
         local mesh = loaded:IsA("MeshPart") and loaded or loaded:FindFirstChildOfClass("MeshPart")
         if not mesh then return end
 
-        for _, p in ipairs(char:GetChildren()) do
-            if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
-                p.Transparency = 1
-                p.CanCollide = false
-            elseif p:IsA("Accessory") or p:IsA("Shirt") or p:IsA("Pants") then
-                p:Destroy()
-            end
-        end
+        HideCharParts(char)
 
         local body = mesh:Clone()
         body.Name = "AstraSahurPart"
@@ -1837,6 +1845,21 @@ do
         if hum then hum.AutoRotate = false end
 
         ClearSahurBindings()
+
+        A.sahurHideConn = RS.RenderStepped:Connect(function()
+            if not A.sahurEnabled then return end
+            local c = LP.Character
+            if not c or not c.Parent then return end
+            for _, p in ipairs(c:GetChildren()) do
+                if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
+                    if p.LocalTransparencyModifier ~= 1 then p.LocalTransparencyModifier = 1 end
+                    if p.Transparency ~= 1 then p.Transparency = 1 end
+                    if p.CanCollide then p.CanCollide = false end
+                elseif p:IsA("Accessory") or p:IsA("Shirt") or p:IsA("Pants") or p:IsA("CharacterMesh") then
+                    p:Destroy()
+                end
+            end
+        end)
 
         A.sahurShiftLockConn = RS.RenderStepped:Connect(function()
             if not A.sahurEnabled then return end
@@ -1871,7 +1894,9 @@ do
                 if not A.sahurEnabled or not A.sahurSpinEnabled then return end
                 local body2 = A.sahurPart
                 if body2 and body2.Parent then
-                    body2.CFrame = body2.CFrame * CFrame.Angles(0, math.rad(A.sahurSpinSpeed * 60 * dt), 0)
+                    local cf = body2.CFrame
+                    local newCF = cf * CFrame.Angles(0, math.rad(A.sahurSpinSpeed * 60 * dt), 0)
+                    body2.CFrame = CFrame.new(cf.Position) * newCF.Rotation
                 end
             end)
         end
@@ -1890,6 +1915,7 @@ do
         for _, p in ipairs(char:GetDescendants()) do
             if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
                 p.Transparency = 0
+                p.LocalTransparencyModifier = 0
             end
         end
     end
@@ -1918,7 +1944,9 @@ do
                 if not A.sahurEnabled or not A.sahurSpinEnabled then return end
                 local body = A.sahurPart
                 if body and body.Parent then
-                    body.CFrame = body.CFrame * CFrame.Angles(0, math.rad(A.sahurSpinSpeed * 60 * dt), 0)
+                    local cf = body.CFrame
+                    local newCF = cf * CFrame.Angles(0, math.rad(A.sahurSpinSpeed * 60 * dt), 0)
+                    body.CFrame = CFrame.new(cf.Position) * newCF.Rotation
                 end
             end)
         end
